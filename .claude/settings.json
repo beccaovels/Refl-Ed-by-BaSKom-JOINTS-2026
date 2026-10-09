@@ -1,0 +1,35 @@
+{
+  "includeCoAuthoredBy": false,
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "permissions": {
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git remote add:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(gh pr review:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue comment:*)",
+      "Bash(gh repo create:*)",
+      "Bash(gh release create:*)",
+      "Bash(gh api:*)",
+      "PowerShell(git push:*)",
+      "PowerShell(git remote add:*)",
+      "PowerShell(git remote set-url:*)",
+      "PowerShell(gh pr create:*)",
+      "PowerShell(gh pr merge:*)",
+      "PowerShell(gh pr comment:*)",
+      "PowerShell(gh pr review:*)",
+      "PowerShell(gh issue create:*)",
+      "PowerShell(gh issue comment:*)",
+      "PowerShell(gh repo create:*)",
+      "PowerShell(gh release create:*)",
+      "PowerShell(gh api:*)"
+    ]
+  }
+}
