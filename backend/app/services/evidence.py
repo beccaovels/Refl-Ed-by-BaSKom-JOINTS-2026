@@ -17,6 +17,14 @@ BANNED = ("kurang", "lemah", "seharusnya", "lacking", "poor", "weak", "should")
 ALLOWED_PHRASES = re.compile(r"\b(kurang dari|kurang lebih|lebih kurang)\b")
 _BANNED = re.compile(r"\b(" + "|".join(BANNED) + r")\b")
 
+# No emotion labels: the report never says how the teacher seemed to feel.
+EMOTIONS = (
+    "gugup", "grogi", "cemas", "tegang", "takut", "ragu-ragu", "bosan", "murung", "sedih", "marah", "kesal",
+    "ceria", "gembira", "bahagia", "percaya diri", "tidak percaya diri", "lesu", "malas",
+    "nervous", "anxious", "bored", "sad", "angry", "happy", "cheerful", "confident", "unconfident", "lazy",
+)  # fmt: skip
+_EMOTIONS = re.compile(r"\b(" + "|".join(EMOTIONS) + r")\b")
+
 
 def find_quote(quote: str | None, segments: list[TranscriptSegment]) -> int | None:
     """When the teacher said `quote`, as ms from the start of the lesson, or None if they never did.
@@ -42,3 +50,13 @@ def banned_words(text: str | None) -> list[str]:
     """The banned words in a text the teacher will read. Empty means the wording is fine."""
     cleaned = ALLOWED_PHRASES.sub(" ", (text or "").lower())
     return sorted(set(_BANNED.findall(cleaned)))
+
+
+def emotion_words(text: str | None) -> list[str]:
+    """Words that label how the teacher felt. Feedback describes the lesson, never a mood."""
+    return sorted(set(_EMOTIONS.findall((text or "").lower())))
+
+
+def unkind(text: str | None) -> bool:
+    """True when a feedback text breaks a wording rule and must not reach the teacher."""
+    return bool(banned_words(text) or emotion_words(text))
