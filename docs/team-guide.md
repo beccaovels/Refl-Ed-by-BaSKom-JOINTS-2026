@@ -160,14 +160,18 @@ scoring.py: metrics.py → llm.py with the rubric prompt and profile → evidenc
 
 | Function | Called from | Returns |
 |---|---|---|
-| `stt.transcribe(wav_bytes)` | `api/audio.py` | text, or empty when there is no speech |
-| `questions.next_event(db, session_id)` | `api/audio.py` | an `Event` or `None` |
-| `questions.capstone(db, session_id)` | `api/sessions.py` (`/end`) | an `Event` |
-| `rag.index_material(db, material_id)` | `api/materials.py` after upload | nothing; fills `material_chunks` |
-| `scoring.build_report(db, session_id)` | `api/sessions.py` (`/finish`) | the `Report` dict that gets stored |
-| `profiles.list_tested()` | `api/profiles.py` | the profile list |
+| `stt.transcribe(wav_bytes)` | `api/audio.py` | text, or `""` when there is no speech (then `segment` is null) |
+| `questions.next_event(db, session_id, now_ms)` | `api/audio.py`, on every chunk, after saving the segment. `now_ms` is the chunk's `end_ms` | an `Event` dict or `None`; the question is already saved |
+| `questions.capstone(db, session_id)` | `api/sessions.py` (`/end`) | an `Event` dict; already saved |
+| `rag.index_material(db, material_id)` | `api/materials.py` after saving the file and the `materials` row | nothing; fills `material_chunks` |
+| `scoring.build_report(db, session_id)` | `api/sessions.py` (`/finish`) | the `Report` dict; the endpoint stores it in `reports` |
+| `profiles.list_tested()` | `api/profiles.py` | the profile list, in the shape of `GET /profiles` |
 
-Until a service is ready, it returns a fixed fake value with the right shape, so the endpoint and the page can be built and tested without waiting.
+All six exist in `backend/app/services/` and return the contract's shapes. `db` is the SQLModel session from `get_session`. They raise `ValueError` for an unknown id, and `stt.STTError` / `llm.LLMError` when a provider fails.
+
+Until a service is finished, it returns a fixed fake value with the right shape, so the endpoint and the page can be built and tested without waiting. Today that means: question wording is canned (the timing is real), and the report is a sample whose texts start with "(Contoh)".
+
+To work with no API keys at all, set `STT_PROVIDER=fake` and `LLM_PROVIDER=fake` in `backend/.env`. While no profile is marked `tested` yet, `profiles.list_tested(include_untested=True)` shows them for local development.
 
 ## 4. Adding something
 

@@ -1,7 +1,11 @@
 ---
 name: principles-check
 description: Checks changed code, UI text and prompts against the product principles in CLAUDE.md and lists violations. Run before merging anything that touches text the teacher reads, a prompt, or scoring.
-tools: Read, Glob, Grep, Bash
+tools: 
+- read 
+- glob 
+- grep 
+- bash
 ---
 
 Read "Product principles that must never be broken" in `CLAUDE.md` and `docs/delivery-grading.md`. Then look at what changed (`git diff main...HEAD` and `git status`; if there is no diff, check the whole of `frontend/src/`, `backend/app/prompts/`, `backend/app/services/` and `backend/app/profiles/`).
