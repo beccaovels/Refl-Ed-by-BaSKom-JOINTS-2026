@@ -119,8 +119,10 @@ services/     the AI pipeline                                                   
   rag.py        split the PDF into chunks, embed, find the chunks closest to the transcript
   questions.py  decide when to ask, build the question, misconception, capstone, nudge
   metrics.py    pace, pauses, questions asked, reading share, time per slide (no LLM)
-  scoring.py    build the report: metrics, LLM rubric scores, rules for pacing and presence
-  evidence.py   drop any quote that is not in the transcript
+  scoring.py    build the report: metrics, LLM levels per parameter, evidence check, card scores
+  rubric.py     the six cards, their parameters and weights, as data
+  report_schema.py  ReportOut: the Report shape as a Pydantic class
+  evidence.py   drop any quote that is not in the transcript; catch banned words
 prompts/      prompt texts as files, never inside Python strings                             AI lead
 profiles/     one YAML file per subject and phase                                            AI lead
 ```
@@ -164,12 +166,14 @@ scoring.py: metrics.py → llm.py with the rubric prompt and profile → evidenc
 | `questions.next_event(db, session_id, now_ms)` | `api/audio.py`, on every chunk, after saving the segment. `now_ms` is the chunk's `end_ms` | an `Event` dict or `None`; the question is already saved |
 | `questions.capstone(db, session_id)` | `api/sessions.py` (`/end`) | an `Event` dict; already saved |
 | `rag.index_material(db, material_id)` | `api/materials.py` after saving the file and the `materials` row | nothing; fills `material_chunks` |
-| `scoring.build_report(db, session_id)` | `api/sessions.py` (`/finish`) | the `Report` dict; the endpoint stores it in `reports` |
+| `scoring.build_report(db, session_id)` | `api/sessions.py` (`/finish`) | the complete `Report` dict, already validated; the endpoint stores it whole in `reports.data` and copies `overall.score` to `reports.overall_score`. Takes 10–40 s, so run it in the background |
 | `profiles.list_tested()` | `api/profiles.py` | the profile list, in the shape of `GET /profiles` |
 
 All six exist in `backend/app/services/` and return the contract's shapes. `db` is the SQLModel session from `get_session`. They raise `ValueError` for an unknown id, and `stt.STTError` / `llm.LLMError` when a provider fails.
 
-Until a service is finished, it returns a fixed fake value with the right shape, so the endpoint and the page can be built and tested without waiting. Today that means: question wording is canned (the timing is real), and the report is a sample whose texts start with "(Contoh)".
+The report is real: metrics are computed, the LLM rates each parameter with a quote, and every quote is checked against the transcript. The frontend computes nothing; every score, label and text is in the `Report`. Its shape is the Pydantic class `app.services.report_schema.ReportOut`, which the reports endpoint can use as `response_model`. To see a report without a frontend, run `python ../ml/eval/try_report.py` from `backend/`.
+
+Still canned for now: the capstone question's wording.
 
 To work with no API keys at all, set `STT_PROVIDER=fake` and `LLM_PROVIDER=fake` in `backend/.env`. While no profile is marked `tested` yet, `profiles.list_tested(include_untested=True)` shows them for local development.
 

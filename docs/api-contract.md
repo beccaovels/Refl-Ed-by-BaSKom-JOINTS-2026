@@ -25,7 +25,7 @@ No real auth: after login the frontend sends `X-User-Id: <user id>` on every req
 
 `Session`: `{ id, status, started_at, ended_at | null, profile_id, class_name, subject, chapter, sub_chapter, material_id, camera_on, demo_mode }` (`status`: `active` | `ended` | `partial`)
 
-`GET /sessions` → `[Session + { overall_score | null }]`, newest first (History, Dashboard).
+`GET /sessions` → `[Session + { overall_score | null, overall_label | null }]`, newest first (History, Dashboard). `overall_score` is 0–100; both come from the stored report's `overall`.
 
 `GET /sessions/{id}` → `Session`
 
@@ -63,26 +63,39 @@ No real auth: after login the frontend sends `X-User-Id: <user id>` on every req
 
 `GET /sessions/{id}/report` → 200 `Report`, or 202 `{ report_status: "pending" }`, or 500 `{ detail }` if generation failed.
 
-`Report`:
+`Report` holds everything the scoring produces. The frontend computes nothing; `title`, `label_text`, `summary` and every `text` are ready-to-display Bahasa Indonesia. Scores are 0–100.
 ```
 {
   id, session_id, created_at,
-  overall: { score, label },                       // score 1-5; label: starting | developing | strong
-  strengths: [Item],                               // shown first
-  dimensions: [{
-    key,                                           // content_accuracy | teaching_flow | clarity | engagement | pacing | on_camera_presence
-    score | null, label | null,
-    available,                                     // false e.g. camera off
+  profile: { id, label },                          // the subject profile the lesson was read with
+  overall: { score | null, label | null, label_text | null, summary },
+                                                   // label: starting | developing | strong; label_text: Mulai tumbuh | Berkembang | Kuat
+                                                   // score is null only when the recording was too short to assess
+  strengths: [Item],                               // shown first; never empty
+  dimensions: [{                                   // always these six, in this order
+    key,                                           // content_accuracy | teaching_flow | clarity | engagement | pacing | delivery
+    title,                                         // e.g. "Kejelasan"
+    score | null, label | null, label_text | null,
+    weight,                                        // share of the overall score, in percent
+    available,                                     // false when it could not be measured
     locked,                                        // true when the tier does not include it
-    items: [Item]
+    unavailable_reason | null,
+    parameters: [{ key, title, score | null, max, available, source }],   // source: llm | computed; empty when locked
+    items: [Item]                                  // at most one worked and one noticed, worked first
   }],
   ideas: [Idea],                                   // at most 3
-  metrics: { words_per_minute, pause_count, questions_asked, wait_time_avg_ms, reading_share | null, response_time_avg_ms | null, time_per_slide: [{ page, ms }] },
-  questions: [{ event_id, kind, text, asked_at_ms, answer_quote | null }]
+  tip | null,                                      // one line, the first idea
+  metrics: { words_per_minute, pause_count, questions_asked, wait_time_avg_ms | null, reading_share | null,
+             response_time_avg_ms | null, filler_count, time_per_slide: [{ page, ms }] },
+  moments: [{ t_ms, kind, text }],                 // kind: voice | face | both; where voice and face came alive
+  questions: [{ event_id, kind, text, asked_at_ms, answer_quote | null, response_time_ms | null }]
 }
 Item: { id, kind, text, quote | null, t_ms | null }   // kind: worked | noticed
 Idea: { id, text, ready_to_use }                      // ready_to_use: the example, story or question, written in Bahasa Indonesia
 ```
+- The same shape exists as a Pydantic class, `app.services.report_schema.ReportOut`, for use as the endpoint's `response_model`.
+- `delivery` ("Suara & ekspresi") is voice-only when the camera is off, and unavailable only when no signal bins were sent.
+- The parameters and weights behind each card are in `docs/delivery-grading.md`.
 
 `POST /reports/{id}/flags` — `{ item_id }` → 204. "This is not accurate"; the item is hidden from then on.
 
