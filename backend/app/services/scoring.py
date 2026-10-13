@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.models import Question, SignalBin, SlideEvent, TeachingSession, TranscriptSegment, User
-from app.services import evidence, llm, metrics, profiles, rag
+from app.services import delivery, evidence, llm, metrics, profiles, rag
 from app.services.metrics import LessonMetrics
 from app.services.questions import ASKING
 from app.services.report_schema import ReportOut
@@ -122,7 +122,8 @@ def build_report(db: Session, session_id: str) -> dict:
     levels = _levels(assessment, {p["key"] for p in wanted}, segments, sample)
     fractions = {key: level / 5 for key, level in levels.items()}
     fractions.update(_computed(numbers))
-    fractions.update(_delivery(bins, asked))
+    signals, moments = delivery.score(bins, asked, segments)
+    fractions.update(signals)
 
     items = _items(assessment, segments, sample) if assessment else {}
     for key, extra in _computed_items(numbers, segments).items():
@@ -158,7 +159,7 @@ def build_report(db: Session, session_id: str) -> dict:
         "ideas": ideas,
         "tip": ideas[0]["text"] if ideas else None,
         "metrics": numbers.public(),
-        "moments": [],
+        "moments": moments if any(d["key"] == "delivery" and d["score"] is not None for d in dimensions) else [],
         "questions": _exchanges(asked, answers, replies, reactions, segments),
     }
     return ReportOut.model_validate(report).model_dump()
@@ -345,11 +346,6 @@ def _computed(numbers: LessonMetrics) -> dict[str, float]:
         found["slide_balance"] = band(longest / max(numbers.duration_ms, 1), *SLIDE_SHARE_BAND)
 
     return {key: FLOOR + (1 - FLOOR) * value for key, value in found.items()}
-
-
-def _delivery(bins: list[SignalBin], asked: list[Question]) -> dict[str, float]:
-    """Voice and on-camera parameters from the signal bins. Filled in with the vision milestone."""
-    return {}
 
 
 def _computed_items(numbers: LessonMetrics, segments: list[TranscriptSegment]) -> dict[str, list[dict]]:
