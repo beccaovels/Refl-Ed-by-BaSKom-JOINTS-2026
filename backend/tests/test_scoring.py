@@ -243,9 +243,30 @@ def test_the_prompt_carries_the_profile_the_transcript_and_the_answers(db, taugh
     prompt = prompts[0]
     assert "Menjelaskan alasan di balik rumus" in prompt  # the maths profile's own Clarity parameter
     assert "[00:14] Coba bayangkan kalian melempar bola basket" in prompt
-    assert "Murid: Kenapa a tidak boleh nol?" in prompt and "`answers_correct`" in prompt
+    assert "Murid bertanya: Kenapa a tidak boleh nol?" in prompt and "`answers_correct`" in prompt
     assert "literasi finansial" in prompt  # context seeds for the ideas
     asked = report["questions"][0]
     assert asked["response_time_ms"] == 4_000 and asked["answer_quote"].startswith("Kalau a positif")
     titles = {p["title"] for p in by_key(report)["clarity"]["parameters"]}
     assert "Menjelaskan alasan di balik rumus" in titles
+
+
+def test_the_report_lists_every_exchange_with_a_student(db, taught, monkeypatch):
+    asked = Question(session_id=taught.id, kind="regular", text="Kenapa a tidak boleh nol?", asked_at_ms=52_000, answered_at_ms=56_000, level=2)
+    db.add(asked)
+    db.commit()
+    db.add(Question(session_id=taught.id, kind="reaction", text="Oh, jadi garis lurus.", asked_at_ms=66_000, reply_to=asked.id, satisfied=True))
+    # The third piece of the lesson ends on "Ada yang tahu kenapa bentuknya begitu?"; Sari answered it.
+    db.add(Question(session_id=taught.id, kind="answer", text="Karena pangkatnya dua?", asked_at_ms=38_500, refers_to_ms=28_000))
+    db.add(Question(session_id=taught.id, kind="nudge", text="Silakan lanjut.", asked_at_ms=80_000))
+    db.commit()
+    prompts = real_llm(monkeypatch, Assessment(ratings=rate_all(3), feedback=[], summary="Terima kasih sudah berlatih.", ideas=[]))
+
+    exchanges = scoring.build_report(db, taught.id)["questions"]
+
+    assert [e["kind"] for e in exchanges] == ["answer", "regular"]  # in time order; no nudge, no reaction row
+    answer, question = exchanges
+    assert answer["teacher_question"] == "Ada yang tahu kenapa bentuknya begitu?"
+    assert answer["answer_quote"].startswith("Bentuk umumnya adalah")  # how the teacher built on it
+    assert (question["level"], question["satisfied"], question["follow_up"]) == (2, True, None)
+    assert "Guru bertanya kepada kelas, lalu murid menjawab: Karena pangkatnya dua?" in prompts[0]
