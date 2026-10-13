@@ -9,6 +9,7 @@ With LLM_PROVIDER=fake the LLM call is replaced by a sample whose texts start
 with "(Contoh)", so the Report page can be built with no key.
 """
 
+import json
 import logging
 import statistics
 from datetime import datetime, timezone
@@ -23,6 +24,7 @@ from sqlmodel import Session, select
 from app.models import Question, SignalBin, SlideEvent, TeachingSession, TranscriptSegment, User
 from app.services import evidence, llm, metrics, profiles, rag
 from app.services.metrics import LessonMetrics
+from app.services.questions import ASKING
 from app.services.report_schema import ReportOut
 from app.services.rubric import CARDS, FREE_CARDS, LABELS, Card, band, clarity_parameters, growth_label
 
@@ -96,15 +98,14 @@ def build_report(db: Session, session_id: str) -> dict:
     segments = list(
         db.exec(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id).order_by(TranscriptSegment.seq))
     )
-    asked = list(
-        db.exec(
-            select(Question).where(Question.session_id == session_id, Question.kind != "nudge").order_by(Question.asked_at_ms)
-        )
-    )
+    events = list(db.exec(select(Question).where(Question.session_id == session_id).order_by(Question.asked_at_ms)))
+    asked = [e for e in events if e.kind in ASKING]  # what students asked the teacher
+    replies = [e for e in events if e.kind == "answer"]  # what students answered when the teacher asked
+    reactions = {e.reply_to: e for e in events if e.kind == "reaction"}
     bins = list(db.exec(select(SignalBin).where(SignalBin.session_id == session_id).order_by(SignalBin.t_start_ms)))
     numbers = metrics.compute(db, session_id)
-    answers = {q.id: _answer(q, segments) for q in asked}
-    answered = any(answers.values())
+    answers = {q.id: _said_after(q.answered_at_ms, segments) for q in asked}
+    answered = any(answers.values()) or bool(replies)
 
     enough_speech = numbers.words >= MIN_WORDS
     sample = llm.is_fake()
@@ -115,7 +116,7 @@ def build_report(db: Session, session_id: str) -> dict:
             assessment = _sample_assessment(wanted)
         else:
             assessment = llm.generate_json(
-                _prompt(db, session, profile, segments, asked, answers, wanted), Assessment
+                _prompt(db, session, profile, segments, asked, answers, replies, wanted), Assessment
             )
 
     levels = _levels(assessment, {p["key"] for p in wanted}, segments, sample)
@@ -158,17 +159,7 @@ def build_report(db: Session, session_id: str) -> dict:
         "tip": ideas[0]["text"] if ideas else None,
         "metrics": numbers.public(),
         "moments": [],
-        "questions": [
-            {
-                "event_id": q.id,
-                "kind": q.kind,
-                "text": q.text,
-                "asked_at_ms": q.asked_at_ms,
-                "answer_quote": answers[q.id] or None,
-                "response_time_ms": q.answered_at_ms - q.asked_at_ms if q.answered_at_ms is not None else None,
-            }
-            for q in asked
-        ],
+        "questions": _exchanges(asked, answers, replies, reactions, segments),
     }
     return ReportOut.model_validate(report).model_dump()
 
@@ -206,8 +197,20 @@ def _prompt(
     segments: list[TranscriptSegment],
     asked: list[Question],
     answers: dict[str, str],
+    replies: list[Question],
     wanted: list[dict],
 ) -> str:
+    exchanges = [
+        (q.asked_at_ms, f"[{_clock(q.asked_at_ms)}] Murid bertanya: {q.text}\n  Jawaban guru: {answers[q.id] or '(belum dijawab)'}")
+        for q in asked
+    ] + [
+        (
+            r.asked_at_ms,
+            f"[{_clock(r.asked_at_ms)}] Guru bertanya kepada kelas, lalu murid menjawab: {r.text}\n"
+            f"  Guru melanjutkan: {_said_after(r.asked_at_ms, segments) or '(belum ada tanggapan)'}",
+        )
+        for r in replies
+    ]
     focus = profile.get("accuracy_focus")
     seeds = profile.get("context_seeds") or ["kehidupan sehari-hari di sekitar murid"]
     return Template((PROMPT_DIR / "rubric.md").read_text(encoding="utf-8")).substitute(
@@ -217,10 +220,7 @@ def _prompt(
         phase_expectation=profile.get("phase_expectation") or "(ikuti materi yang diunggah guru)",
         material=_material(db, session) or "(guru tidak mengunggah materi; nilai dari konsistensi penjelasannya)",
         transcript="\n".join(f"[{_clock(s.start_ms)}] {s.text}" for s in segments),
-        student_questions="\n".join(
-            f"[{_clock(q.asked_at_ms)}] Murid: {q.text}\n  Jawaban guru: {answers[q.id] or '(belum dijawab)'}" for q in asked
-        )
-        or "(tidak ada pertanyaan murid)",
+        student_questions="\n".join(text for _, text in sorted(exchanges)) or "(tidak ada pertanyaan murid)",
         parameters="\n".join(f"- `{p['key']}` ({p['title']}): {p['look_for']}" for p in wanted),
         accuracy_focus=f"- Untuk ketepatan isi pada mata pelajaran ini, perhatikan: {focus}" if focus else "",
         cards=", ".join(sorted({p["card"] for p in wanted})),
@@ -450,12 +450,57 @@ def _strengths(dimensions: list[dict], numbers: LessonMetrics) -> list[dict]:
     return strengths
 
 
-def _answer(question: Question, segments: list[TranscriptSegment]) -> str:
-    """What the teacher said right after a student's question, in their own words."""
-    if question.answered_at_ms is None:
+def _exchanges(
+    asked: list[Question],
+    answers: dict[str, str],
+    replies: list[Question],
+    reactions: dict[str | None, Question],
+    segments: list[TranscriptSegment],
+) -> list[dict]:
+    """Every exchange with an AI student, in time order: their questions, and their answers to the teacher."""
+    rows = []
+    for q in asked:
+        reaction = reactions.get(q.id)
+        rows.append(
+            {
+                "event_id": q.id,
+                "kind": q.kind,
+                "persona": json.loads(q.persona) if q.persona else None,
+                "text": q.text,
+                "asked_at_ms": q.asked_at_ms,
+                "level": q.level,
+                "teacher_question": None,
+                "answer_quote": answers[q.id] or None,
+                "response_time_ms": q.answered_at_ms - q.asked_at_ms if q.answered_at_ms is not None else None,
+                "satisfied": reaction.satisfied if reaction else None,
+                "follow_up": reaction.text if reaction and reaction.satisfied is False else None,
+            }
+        )
+    for r in replies:
+        prompted_by = next((s for s in segments if s.start_ms == r.refers_to_ms), None)
+        rows.append(
+            {
+                "event_id": r.id,
+                "kind": r.kind,
+                "persona": json.loads(r.persona) if r.persona else None,
+                "text": r.text,
+                "asked_at_ms": r.asked_at_ms,
+                "level": None,
+                "teacher_question": metrics.closing_question(prompted_by.text) if prompted_by else None,
+                "answer_quote": _said_after(r.asked_at_ms, segments) or None,
+                "response_time_ms": None,
+                "satisfied": None,
+                "follow_up": None,
+            }
+        )
+    return sorted(rows, key=lambda row: row["asked_at_ms"])
+
+
+def _said_after(start: int | None, segments: list[TranscriptSegment]) -> str:
+    """What the teacher said in the minute from `start`, in their own words."""
+    if start is None:
         return ""
-    start = question.answered_at_ms
-    text = " ".join(s.text for s in segments if start <= s.start_ms < start + ANSWER_WINDOW_MS)
+    text =" ".join(s.text for s in segments if start <= s.start_ms < start + ANSWER_WINDOW_MS)
     return text[:ANSWER_CHARS].rsplit(" ", 1)[0] if len(text) > ANSWER_CHARS else text
 
 

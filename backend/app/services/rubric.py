@@ -82,7 +82,7 @@ CARDS: tuple[Card, ...] = (
                       "Contoh konkret, analogi, atau kaitan dengan kehidupan sehari-hari dan lingkungan murid."),
             Parameter("invites_students", "Mengajak murid berpikir", 25, "computed"),
             Parameter("builds_on_questions", "Menanggapi pertanyaan murid", 20, "llm",
-                      "Guru menjawab pertanyaan murid secara langsung dan mengembangkannya, misalnya dengan contoh."),
+                      "Guru menanggapi pertanyaan atau jawaban murid secara langsung dan mengembangkannya, misalnya dengan contoh."),
             Parameter("own_words", "Menjelaskan dengan kata-kata sendiri", 15, "computed"),
         ),
     ),
