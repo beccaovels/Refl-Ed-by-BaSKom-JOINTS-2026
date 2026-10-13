@@ -66,8 +66,10 @@ At most one event per audio reply. What the room does with each `kind`:
 `POST /sessions/{id}/signals` — `{ bins: [Bin] }` → 204. Idempotent on `(session, t_start_ms)`.
 
 `Bin`: `{ t_start_ms, facing_pct, posture_ok_pct, gesture_rate, expressiveness, face_visible_pct, volume, pitch_variation, measured }`
-- Percentages are 0–1. `measured: false` when the picture was too dark or the face was not found; those bins are left out of scoring.
-- With the camera off only `t_start_ms`, `volume`, `pitch_variation` are sent; the rest are null.
+- One bin per 10 seconds, produced by `startSignals()` in `frontend/src/features/simulator/vision/`; the room only forwards them.
+- `facing_pct`, `posture_ok_pct`, `face_visible_pct` and `gesture_rate` are shares of the bin, 0–1. `expressiveness` is how far the face moved from the teacher's own neutral face, 0–1. `volume` is average loudness, 0–1. `pitch_variation` is the spread of the voice's pitch in semitones, null when nobody spoke.
+- `measured: false` when the picture was too dark or the face too small to trust; the camera values are then null and the bin is left out of camera scoring. Its voice values still count.
+- With the camera off only `t_start_ms`, `volume`, `pitch_variation` are sent, with `measured: true`; the rest are null.
 
 ### Ending
 

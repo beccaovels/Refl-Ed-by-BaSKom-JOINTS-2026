@@ -175,6 +175,17 @@ The report is real: metrics are computed, the LLM rates each parameter with a qu
 
 `questions.next_event` returns at most one event per audio chunk, of six kinds (table in `docs/api-contract.md`): a student asks (`regular`, `misconception`), answers the teacher's question (`answer`), shows the answer landed or asks one follow-up (`reaction`), plus `nudge` and `capstone`. The endpoint passes the dict through unchanged. To watch a whole lesson's worth of events without a frontend, run `python ../ml/eval/try_questions.py` from `backend/`.
 
+**Voice and camera signals** are one call for the room, from `frontend/src/features/simulator/vision/index.ts`:
+
+```ts
+const signals = await startSignals({ stream, video, now, onBin })  // video: omit when the camera is off
+await signals.calibrate()   // optional: 3 s of "sit how you teach"
+// ...lesson: every 10 s onBin(bin) fires; send bins to POST /sessions/{id}/signals...
+signals.stop()
+```
+
+`now` must return milliseconds since the lesson started, the same clock the audio chunks use. The folder needs one package: `npm install @mediapipe/tasks-vision@0.10.14`. Until the frontend project exists, the code is typechecked and tested from `ml/vision-harness/` (`npm install`, `npm run check`), and `npm run dev` there opens a page that shows the live signals from a webcam, the microphone alone, or a recorded clip.
+
 The `questions` table gained three optional columns for this (`level`, `reply_to`, `satisfied`). SQLite does not add columns to an existing file, so delete `backend/data/app.db` once after pulling; it is recreated on startup.
 
 To work with no API keys at all, set `STT_PROVIDER=fake` and `LLM_PROVIDER=fake` in `backend/.env`. While no profile is marked `tested` yet, `profiles.list_tested(include_untested=True)` shows them for local development.
