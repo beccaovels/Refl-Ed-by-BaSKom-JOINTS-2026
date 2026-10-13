@@ -37,9 +37,25 @@ No real auth: after login the frontend sends `X-User-Id: <user id>` on every req
 
 - Idempotent on `(session, seq)`: a repeated `seq` returns the stored result and does nothing else.
 - `segment` is null when the chunk had no speech.
+- Cut chunks at silence. `start_ms` and `end_ms` mark where speech starts and stops, not where a fixed-length chunk begins and ends: pauses and thinking time in the report are the gaps between chunks.
 
-`Event`: `{ id, kind, persona: { name, style } | null, text, asked_at_ms, refers_to_ms | null }`
-(`kind`: `regular` | `misconception` | `capstone` | `nudge`)
+`Event`: `{ id, kind, persona: { name, style } | null, text, asked_at_ms, refers_to_ms | null, level | null, question_id | null, satisfied | null }`
+
+At most one event per audio reply. What the room does with each `kind`:
+
+| `kind` | Who speaks | Meaning | Room shows |
+|---|---|---|---|
+| `regular` | AI student | A question about what was just said. `level` 1–3 is its depth (1 clarify, 2 why/how, 3 what-if) | The question on that student's tile |
+| `misconception` | AI student | A question built on a misconception documented in the teacher's book. Once per lesson | Same as `regular` |
+| `answer` | AI student | The teacher ended on a question to the class; one student answers it. `refers_to_ms` is the teacher's question | The answer on that student's tile |
+| `reaction` | The student who asked | Sent after the teacher has answered. `question_id` is the question it reacts to. `satisfied: true`: `text` is a short acknowledgement, show a gesture (nod, thumbs-up) and the teacher carries on. `satisfied: false`: `text` is one follow-up question | Gesture, or the follow-up |
+| `capstone` | AI student | The one closing question, from `/end` | The question |
+| `nudge` | Nobody (`persona` is null) | The teacher has been silent for 30 s | A quiet line of text |
+
+- A student's question stays open until its `reaction` arrives; no other question is asked meanwhile.
+- A follow-up (`satisfied: false`) is always followed by a `reaction` with `satisfied: true`, so a teacher is never stuck.
+- An `answer` is written while the teacher pauses (2–6 s). If the teacher has already started speaking again when it arrives, the room may show it quietly or drop it.
+- `level`, `question_id` and `satisfied` are null for the kinds that do not use them.
 
 ### Slides
 
@@ -88,8 +104,14 @@ No real auth: after login the frontend sends `X-User-Id: <user id>` on every req
   metrics: { words_per_minute, pause_count, questions_asked, wait_time_avg_ms | null, reading_share | null,
              response_time_avg_ms | null, filler_count, time_per_slide: [{ page, ms }] },
   moments: [{ t_ms, kind, text }],                 // kind: voice | face | both; where voice and face came alive
-  questions: [{ event_id, kind, text, asked_at_ms, answer_quote | null, response_time_ms | null }]
+  questions: [Exchange]                            // every exchange with an AI student, in time order
 }
+Exchange: { event_id, kind, persona | null, text, asked_at_ms, level | null, teacher_question | null,
+            answer_quote | null, response_time_ms | null, satisfied | null, follow_up | null }
+            // kind regular | misconception | capstone: `text` is the student's question, `answer_quote` what the teacher answered,
+            //   `satisfied` whether the student showed it landed, `follow_up` the student's one follow-up if any
+            // kind answer: `teacher_question` is what the teacher asked the class, `text` the student's answer,
+            //   `answer_quote` how the teacher carried on
 Item: { id, kind, text, quote | null, t_ms | null }   // kind: worked | noticed
 Idea: { id, text, ready_to_use }                      // ready_to_use: the example, story or question, written in Bahasa Indonesia
 ```

@@ -173,7 +173,9 @@ All six exist in `backend/app/services/` and return the contract's shapes. `db` 
 
 The report is real: metrics are computed, the LLM rates each parameter with a quote, and every quote is checked against the transcript. The frontend computes nothing; every score, label and text is in the `Report`. Its shape is the Pydantic class `app.services.report_schema.ReportOut`, which the reports endpoint can use as `response_model`. To see a report without a frontend, run `python ../ml/eval/try_report.py` from `backend/`.
 
-Still canned for now: the capstone question's wording.
+`questions.next_event` returns at most one event per audio chunk, of six kinds (table in `docs/api-contract.md`): a student asks (`regular`, `misconception`), answers the teacher's question (`answer`), shows the answer landed or asks one follow-up (`reaction`), plus `nudge` and `capstone`. The endpoint passes the dict through unchanged. To watch a whole lesson's worth of events without a frontend, run `python ../ml/eval/try_questions.py` from `backend/`.
+
+The `questions` table gained three optional columns for this (`level`, `reply_to`, `satisfied`). SQLite does not add columns to an existing file, so delete `backend/data/app.db` once after pulling; it is recreated on startup.
 
 To work with no API keys at all, set `STT_PROVIDER=fake` and `LLM_PROVIDER=fake` in `backend/.env`. While no profile is marked `tested` yet, `profiles.list_tested(include_untested=True)` shows them for local development.
 
