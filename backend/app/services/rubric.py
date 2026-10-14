@@ -4,7 +4,8 @@ Mirrors the "Scoring parameters" table in docs/delivery-grading.md. A parameter
 is either judged by the LLM on a 1-5 scale with a quote (`source="llm"`) or
 computed from the lesson's numbers (`source="computed"`). Cards, weights and
 feedback rules are the same for every subject; only the two profile parameters
-of Clarity come from the subject profile.
+of Clarity, and what a clearly set-out worked example looks like, come from the
+subject profile.
 """
 
 from dataclasses import dataclass
@@ -33,12 +34,17 @@ CARDS: tuple[Card, ...] = (
         "Ketepatan materi",
         20,
         (
-            Parameter("material_agreement", "Sesuai dengan materi", 50, "llm",
+            Parameter("material_agreement", "Sesuai dengan materi", 40, "llm",
                       "Pernyataan guru sejalan dengan materi yang ia unggah. Tanpa materi, nilai dari konsistensi penjelasan itu sendiri."),
-            Parameter("correct_terms", "Istilah, rumus, dan fakta tepat", 30, "llm",
+            Parameter("correct_terms", "Istilah, rumus, dan fakta tepat", 24, "llm",
                       "Istilah, rumus, angka, nama, atau urutan disebutkan dengan tepat."),
-            Parameter("answers_correct", "Jawaban untuk murid tepat", 20, "llm",
+            Parameter("answers_correct", "Jawaban untuk murid tepat", 16, "llm",
                       "Jawaban guru atas pertanyaan murid benar secara isi."),
+            # Only with a photo of the teacher's own working that they confirmed and showed. Without one the
+            # three above keep their ratio: 40 : 24 : 16 is 50 : 30 : 20.
+            Parameter("worked_example", "Contoh soal dikerjakan dengan tepat", 20, "llm",
+                      "Contoh soal yang ditulis guru sampai pada jawaban yang tepat lewat langkah yang saling mengikuti. "
+                      "Pakai catatan pemeriksaan pada bagian contoh soal. Selip yang dibetulkan guru saat menjelaskan tidak dihitung."),
         ),
     ),
     Card(
@@ -63,12 +69,15 @@ CARDS: tuple[Card, ...] = (
         "Kejelasan",
         20,
         (
-            Parameter("profile_a", "", 30, "llm"),  # title and look_for come from the subject profile
-            Parameter("terms_explained", "Istilah baru dijelaskan", 25, "llm",
+            Parameter("profile_a", "", 24, "llm"),  # title and look_for come from the subject profile
+            Parameter("terms_explained", "Istilah baru dijelaskan", 20, "llm",
                       "Setiap istilah baru dijelaskan artinya saat pertama kali dipakai."),
-            Parameter("step_by_step", "Selangkah demi selangkah", 25, "llm",
+            Parameter("step_by_step", "Selangkah demi selangkah", 20, "llm",
                       "Satu gagasan per langkah; tidak ada lompatan yang membuat murid kehilangan alur."),
-            Parameter("profile_b", "", 20, "llm"),
+            Parameter("profile_b", "", 16, "llm"),
+            # Only with a confirmed photo that was shown; look_for is the profile's practice list.
+            # Without one the four above keep their ratio: 24 : 20 : 20 : 16 is 30 : 25 : 25 : 20.
+            Parameter("worked_steps", "Langkah pengerjaan tertata dan dijelaskan", 20, "llm"),
         ),
     ),
     Card(
@@ -120,6 +129,14 @@ DEFAULT_CLARITY = (
     {"title": "Lebih dari satu cara penyajian", "look_for": "Gagasan yang sama disajikan dengan lebih dari satu cara."},
 )
 
+# Used when a profile does not say what a clearly set-out worked example looks like in its subject.
+DEFAULT_PRACTICE = (
+    {"title": "Asal jawabannya terlihat", "look_for": "Yang dihitung atau dipakai dituliskan, bukan hanya hasilnya."},
+    {"title": "Satu langkah per baris", "look_for": "Tiap baris berisi satu langkah dan mengikuti baris sebelumnya."},
+    {"title": "Jawaban akhir menjawab soal", "look_for": "Jawaban akhir ditulis sebagai kesimpulan yang menjawab pertanyaan soal."},
+    {"title": "Alasan tiap langkah diucapkan", "look_for": "Saat menjelaskan, guru menyebut mengapa langkah itu dilakukan, bukan hanya hasilnya."},
+)  # fmt: skip
+
 LABELS = {"starting": "Mulai tumbuh", "developing": "Berkembang", "strong": "Kuat"}
 
 
@@ -149,3 +166,8 @@ def clarity_parameters(profile: dict | None) -> tuple[dict, dict]:
     if len(named) >= 2:
         return named[0], named[1]
     return DEFAULT_CLARITY
+
+
+def worked_practice(profile: dict | None) -> list[dict]:
+    """What a clearly set-out worked example looks like in this subject: title and what to look for."""
+    return list((profile or {}).get("worked_example_practice") or DEFAULT_PRACTICE)
