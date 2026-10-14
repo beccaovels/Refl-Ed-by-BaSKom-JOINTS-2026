@@ -80,6 +80,21 @@ class TranscriptSegment(SQLModel, table=True):
     text: str
 
 
+class AudioChunk(SQLModel, table=True):
+    """One processed audio piece and what its reply carried. Not the audio itself, which is never stored.
+
+    A silent piece has no transcript row, so this is what lets a resent piece get its first reply back.
+    """
+
+    __tablename__ = "audio_chunks"
+    __table_args__ = (UniqueConstraint("session_id", "seq"),)
+    id: str = Field(default_factory=new_id, primary_key=True)
+    session_id: str = Field(foreign_key="sessions.id", index=True)
+    seq: int
+    segment_id: Optional[str] = Field(default=None, foreign_key="transcript_segments.id")
+    event_id: Optional[str] = Field(default=None, foreign_key="questions.id")
+
+
 class Question(SQLModel, table=True):
     __tablename__ = "questions"
     id: str = Field(default_factory=new_id, primary_key=True)
