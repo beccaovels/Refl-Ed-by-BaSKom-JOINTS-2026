@@ -21,25 +21,27 @@ Overall is the weighted mean of the cards the teacher can see (available and not
 
 Every card is 100 points split over named parameters. The code is `backend/app/services/rubric.py`; keep this table and that file the same.
 
-- An **LLM** parameter is judged on a 1–5 scale (1 not seen, 2 once, 3 in part of the lesson, 4 clear and repeated, 5 clear and consistent) and earns level ÷ 5 × weight. A 4 or 5 needs a quote that is really in the transcript; without one it drops to 3.
+- An **LLM** parameter is judged on a 1–5 scale (1 not seen, 2 once, 3 in part of the lesson, 4 clear and repeated, 5 clear and consistent) and earns level ÷ 5 × weight. A 4 or 5 needs a quote that is really the teacher's own words (said in the transcript, or written in a worked example they confirmed); without one it drops to 3.
 - A **computed** parameter uses a target band: full marks anywhere inside the comfortable range, sliding down only toward the extremes. Its lowest value earns what level 1 earns, so both kinds share one scale.
 - The LLM never sets a card score. It gives levels; code does the arithmetic.
-- A parameter that could not be measured (no PDF, no student question answered, camera off) gives its weight to the rest of its card.
+- A parameter that could not be measured (no PDF, no student question answered, no worked example, camera off) gives its weight to the rest of its card.
 
 | Card | Parameter | Points | How |
 |---|---|---|---|
-| Accuracy | Statements agree with the teacher's own material | 50 | LLM |
-| | Terms, formulas, facts used correctly | 30 | LLM |
-| | Student questions answered correctly | 20 | LLM; only when a student question was answered |
+| Accuracy | Statements agree with the teacher's own material | 40 | LLM |
+| | Terms, formulas, facts used correctly | 24 | LLM |
+| | Student questions answered correctly | 16 | LLM; only when a student question was answered |
+| | Worked example is worked correctly | 20 | LLM, with the check's notes; only with a worked example that was confirmed and shown |
 | Teaching flow | Goal said aloud early | 20 | LLM |
 | | Links to what students already know | 15 | LLM |
 | | Order builds up: understand → apply | 30 | LLM |
 | | A worked example or apply moment | 20 | LLM |
 | | Reflective close or recap | 15 | LLM |
-| Clarity | Subject parameter A (maths: explains why the rule works) | 30 | LLM, from the profile |
-| | New terms explained when first used | 25 | LLM |
-| | Step by step, one idea at a time | 25 | LLM |
-| | Subject parameter B (maths: more than one representation) | 20 | LLM, from the profile |
+| Clarity | Subject parameter A (maths: explains why the rule works) | 24 | LLM, from the profile |
+| | New terms explained when first used | 20 | LLM |
+| | Step by step, one idea at a time | 20 | LLM |
+| | Subject parameter B (maths: more than one representation) | 16 | LLM, from the profile |
+| | Working is set out and explained | 20 | LLM, against the profile's practice list; only with a worked example that was confirmed and shown |
 | Engagement | Hook that creates curiosity (first 90 s) | 15 | LLM |
 | | Examples, analogies, daily-life links | 25 | LLM |
 | | Invites students in: questions asked + thinking time | 25 | Computed |
@@ -48,13 +50,15 @@ Every card is 100 points split over named parameters. The code is `backend/app/s
 | Pacing | Speaking rate in the comfortable band | 40 | Computed |
 | | Pauses and thinking time | 25 | Computed |
 | | Pace varies between parts | 20 | Computed |
-| | Time spread across slides | 15 | Computed; only with two or more slides |
+| | Time spread across slides | 15 | Computed; only with two or more slides. Photos of worked examples are left out: a worked example rightly stays on stage a long time |
 | Tone & expression | Vocal liveliness | 25 | Audio bins |
 | | Emphasis at key moments | 20 | Audio bins × transcript |
 | | Responsiveness to student questions | 25 | Voice + face in the 5 s after |
 | | Facial liveliness and warm moments | 15 | Camera bins |
 | | Gestures while explaining | 10 | Camera bins |
 | | Stable posture, in frame | 5 | Camera bins |
+
+The points in Accuracy and Clarity changed on 13 Oct to make room for the two worked-example parameters. The older parameters kept their ratio (40 : 24 : 16 is 50 : 30 : 20, and 24 : 20 : 20 : 16 is 30 : 25 : 25 : 20), so a lesson with no worked example scores exactly as before.
 
 ### Where the target bands come from
 
@@ -86,9 +90,51 @@ The headline card. What each of its parameters looks for:
 | Examples and application | Concrete examples, analogies, daily life, local context | LLM, quoted |
 | Inviting students in | Questions, checking understanding, thinking time | Computed: questions asked per minute; share followed by a pause of 3 s or more |
 | Building on student questions | Answers the AI student and extends with an example | LLM on the answer |
-| Own words vs reading | Explaining instead of reading out | Computed: share of speech near word-for-word from the slide on screen. Only runs of 8 words or more count. Unavailable without a PDF |
+| Own words vs reading | Explaining instead of reading out | Computed: share of speech near word-for-word from the slide on screen. Only runs of 8 words or more count. Unavailable when no slide has text. Speech while a photo of the teacher's own working is on stage is left out: walking through your own working is not reading a slide |
 
 "Purpose" and "Linking back" are scored under Teaching flow, and voice under Tone & expression, so nothing is counted twice.
+
+## Handwritten worked examples
+
+A teacher can photograph a question and their own working and show it in the room. Code: `backend/app/services/examples.py`. Endpoints and shapes: `docs/api-contract.md`.
+
+**The order is fixed, so a misread is never held against the teacher:**
+
+1. **Read.** The model sees the photo and copies what is written. It is told not to correct anything and to mark what it is unsure of.
+2. **Confirm.** The teacher sees "Apakah ini yang Anda tulis?" and confirms, or edits any value. Until then nothing is checked, and parts marked unsure are kept from the AI students.
+3. **Check.** A second call sees only the confirmed text, never the photo. It works the question out itself, then compares step by step: `follows`, `recheck` or `cannot_tell`.
+
+Reading and checking are separate calls on purpose: a model that reads and checks at once tends to "see" the number that ought to be there.
+
+**What may be said, enforced in code:**
+
+- A step the checker skipped, or was unsure of, is `cannot_tell`, never a guess.
+- The final answer gets a verdict only when one was written.
+- A note names what is written and what our working gives: "Tertulis n(A) = 5, sedangkan hitungan kami mendapat 6 pasangan." A note that passes a verdict ("salah", "keliru") or uses a banned word is replaced by "Langkah 2 layak dicek ulang."
+- A different but valid method, or an equivalent form (6/36 and 1/6), is `follows`.
+- Handwriting neatness and photo quality are never scored and never mentioned, for the same reason lighting is not.
+
+**What counts in the score:** only an example that is confirmed and was shown on stage.
+
+| Parameter | Rated on | Rule |
+|---|---|---|
+| Worked example is worked correctly (Accuracy, 20) | The confirmed working, the check's notes, and what the teacher said while it was on stage | Below level 3 only when the check named a step or the final answer. A slip the teacher corrects aloud is not counted. Unavailable when the check could say nothing |
+| Working is set out and explained (Clarity, 20) | The practice list below | The list is the yardstick, not the model's taste |
+
+**The practice list is data in the subject profile** (`worked_example_practice`), not the model's opinion. For Matematika X, Bab 7 Peluang:
+
+| Practice | Source |
+|---|---|
+| Where the numbers come from is visible: the outcomes counted are written or drawn (list, table, sample-space diagram), not only how many | Student book p. 244; teacher's book p. 257 |
+| One step per line, each following from the line before, including the form before and after simplifying | Student book p. 244 (2/36 = 1/18); Pólya, "carrying out the plan" |
+| The final answer is written as a conclusion that answers the question | Teacher's book p. 257 ("Oleh karena …, maka …"); Pólya, "looking back" |
+| The reason for each step is said aloud, not only the result | Panduan Mata Pelajaran Matematika 2025, p. 11 (reasoning); teacher's book p. 257 |
+
+The books give no fixed layout for a worked example: this chapter has no "Diketahui / Ditanya / Jawab". So no layout is required, and the list above is what the books themselves do. Sources: `docs/rubric-sources.md`.
+
+**Feedback on an example** follows the same three parts as everywhere else. Each confirmed example gets at most one *what worked* and one *what we noticed*, shown beside its photo. An idea about the written working counts toward the report's three ideas, and the tool writes the missing line itself. A quote may be a line the teacher wrote, but only from an example they confirmed: confirmation is what makes handwriting the teacher's own words.
+
+**One departure from our own rule, stated plainly:** accuracy is otherwise judged against the teacher's material, not the model's knowledge. Checking a worked example means the model does the maths itself. That is why the check is worded as "worth another look" with our own working beside it, runs only on text the teacher confirmed, and carries the "Ini tidak akurat" button.
 
 ## Tone & expression
 
@@ -137,7 +183,7 @@ Rules, enforced by tests:
 - Ideas need no extra preparation time, materials or devices.
 - Banned words: "lacking", "poor", "weak", "should", "kurang", "lemah", "seharusnya". Use "you could try", "one idea" / "Anda bisa mencoba", "satu ide".
 - No comparison with other teachers, schools or countries.
-- Every quote must appear verbatim in the transcript, otherwise the item is dropped.
+- Every quote must be the teacher's own words, verbatim: said in the transcript, or written in a worked example they confirmed. Otherwise the item is dropped.
 - Each item has a "this is not accurate" button; a flagged item is hidden.
 - The absence of group work or hands-on activities is never scored; a solo rehearsal cannot show them.
 
