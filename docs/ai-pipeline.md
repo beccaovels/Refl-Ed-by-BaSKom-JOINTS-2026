@@ -14,6 +14,24 @@ Read this first if you are writing an endpoint, a page or the room. It says what
 - **It runs without API keys.** With `LLM_PROVIDER=fake` and `STT_PROVIDER=fake` in `backend/.env`, every function returns realistic sample data marked "(Contoh)". You can build every page and endpoint today without spending quota.
 - **Nothing is trained.** Speech-to-text and the LLM are hosted models (Groq Whisper, Gemini Flash). Face and body landmarks are the pretrained MediaPipe models. Our work is the layer on top: when students speak, what is measured, how it is scored, and the checks that keep feedback honest and kind.
 
+### 1.1 Features and how far each one is
+
+"AI side" is the code in `services/`, `prompts/`, `profiles/` and `vision/`. "Endpoints and screens" is what BE+FE 1 and BE+FE 2 build. **A teacher can use a feature only when both are done.** On 14 Oct the AI side is done for everything below except where stated, and no endpoint or screen exists yet.
+
+| Feature | AI side | Endpoints and screens | Notes |
+|---|---|---|---|
+| Live transcript | Built: `stt.py` | To build: room audio capture, `POST /sessions/{id}/audio` | Tested on Indonesian clips by hand; word error rate not measured |
+| AI students: ask, answer the teacher, react ("satisfied" or one follow-up), capstone, nudge | Built: `questions.py`, six event kinds | To build: the room shows each kind on a student tile | Run end to end on a typed Peluang lesson |
+| Questions by grade and misconception questions from the book | Built for Matematika X, Bab 7 Peluang | — | Other five profiles not started (data files only) |
+| **Screen sharing, mode A: present the PDF in the app** | Built: the AI reads the text of the page on screen (section 3.4) | To build: pdf.js viewer on the stage, page controls, `POST /sessions/{id}/slides` on every turn | The recommended mode |
+| **Screen sharing, mode B: share a screen or window** | Nothing to build: the AI works from what is said (section 3.4) | To build: `getDisplayMedia` shown on the stage, in the browser only | One open decision, see 3.4 |
+| **Handwritten worked examples** (photo, confirm, check, score, feedback) | Built: `examples.py`, two scoring parameters, feedback in the report | To build: four endpoints, Setup upload and confirm card, room stage switch and one-tap confirm card, report section | Tried only on printed stand-ins, never on real handwriting |
+| Voice and camera signals | Built in the browser: `vision/`, `startSignals()` | To build: the room calls `startSignals()` and forwards bins | Voice path tried in the harness; **camera never run on a real camera** |
+| "Suara & ekspresi" card | Built: `delivery.py` | — | Thresholds provisional |
+| Report: six cards 0–100, feedback, ideas, metrics, exchanges, worked examples | Built: `scoring.build_report` | To build: `/finish` in the background, `GET /sessions/{id}/report`, the Report page | Live report in 10–40 s |
+| Tiers (Free and Institutional) | Built: locked cards in the report | To build: the locked "Upgrade" cards | — |
+| History, Dashboard, Schedule | No AI | To build | — |
+
 ---
 
 ## 2. Architecture
@@ -88,7 +106,7 @@ The contract between `api/` and `services/` is **the function list in section 5*
 
 ---
 
-## 3. The four flows, step by step
+## 3. The flows, step by step
 
 ### 3.1 Setup: material, photos, profile
 
@@ -129,7 +147,24 @@ signals.stop()
 
 `now` must return milliseconds since the lesson started, the same clock the audio uses.
 
-### 3.4 Ending and the report
+### 3.4 Screen sharing: what the AI does in each mode
+
+The room looks like a video call, and the teacher shows their material the way they would share a screen on Zoom. The PRD offers two modes; the AI behaves differently in each.
+
+| | Mode A: present the PDF in the app (recommended) | Mode B: share a screen or window |
+|---|---|---|
+| How | The PDF uploaded in Setup is drawn on the stage with pdf.js, with next/previous and arrow keys | `navigator.mediaDevices.getDisplayMedia()`; the shared screen is drawn on the stage |
+| What goes to the backend | `POST /sessions/{id}/slides { page, t_ms }` on every turn | Nothing. The shared screen is shown in the browser only and is never uploaded, like the camera |
+| AI students | Ask about the slide on screen (`rag.page_text`) and the parts of the PDF closest to what is being said (`rag.closest_chunks`) | Ask about what the teacher said, from the transcript alone |
+| Report | Everything, including "own words vs reading" and time per slide | Everything except "own words vs reading" and time per slide, which are marked unavailable and do not lower the score |
+| Handwritten photos | Switch the stage to the photo and send its `page` | Same: a photo is uploaded and shown on the stage like in mode A |
+| AI work needed | None, it is built | None for the basic mode |
+
+Nothing in mode B needs a new endpoint, because the AI simply has no slide text. **One open decision for mode B:** when the teacher has *also* uploaded a PDF but is sharing their screen, the backend assumes page 1 is on screen whenever no slide event has been sent. Until this is decided, create a mode B session with `material_id: null` if no photos are used. The proposed fix is that the room sends `{ page: 0 }` when it switches to the shared screen, and the AI reads page 0 as "no slide text". It is a small change (one contract line, one test) and will be made only once the team agrees.
+
+Reading the text of a shared screen (capturing frames and recognising the text) is not built and is on the roadmap. It would mean sending screen images to Gemini, which the privacy rule currently avoids.
+
+### 3.5 Ending and the report
 
 1. "Selesai mengajar" → `POST /sessions/{id}/end` → `questions.capstone(db, session_id)` returns one closing question.
 2. After the teacher answers → `POST /sessions/{id}/finish` → reply 202, then in the background: `report = scoring.build_report(db, session_id)`, store it whole in `reports.data`, copy `report["overall"]["score"]` to `reports.overall_score`. Takes 10–40 s.
@@ -158,7 +193,7 @@ What `build_report` does, in order:
 | `examples.py` | Photos of handwritten worked examples. Read (copy only), wait for the teacher to confirm or edit, then check on exactly that text. Reader sees the photo, checker never does. Fairness rules in code: no verdict on a skipped step, notes that judge are replaced. | `add`, `read`, `confirm`, `for_material`, `public` (signatures in section 5) | `MAX_SIDE_PX`, `STATUS_TEXT`, `.env` `LLM_VISION_MODEL` |
 | `metrics.py` | Numbers from timestamps, no AI: words per minute on speaking time, pauses (gaps of 2 s or more), teacher questions (a "?" or a question opener), thinking time (3 s or more after a question), response time to students, fillers, time per slide, reading share (8 or more words in a row from the slide on screen). | `compute(db, session_id)` → `LessonMetrics` (`.public()` is the report's `metrics`) | `PAUSE_MS`, `THINKING_TIME_MS`, `READ_RUN`, `QUESTION_OPENERS` |
 | `delivery.py` | The "Suara & ekspresi" card from the 10 s bins: lively voice, emphasis at key moments, reacting to a student, facial movement, gestures, posture. Moments count, not duration; smiles only add; dark bins are skipped. | `score(bins, asked, segments)` → (parameter fractions, liveliest moments) | `LIVELY_PITCH`, `LIVELY_FACE`, the `*_BAND` values |
-| `scoring.py` | Builds the whole report (section 3.4). | `build_report(db, session_id)` → `Report` dict | `WPM_BAND` and the other `*_BAND` values, `MIN_WORDS`, `MAX_IDEAS` |
+| `scoring.py` | Builds the whole report (section 3.5). | `build_report(db, session_id)` → `Report` dict | `WPM_BAND` and the other `*_BAND` values, `MIN_WORDS`, `MAX_IDEAS` |
 | `rubric.py` | The six cards, their parameters and points, as data. Growth labels, the target-band function, the subject's own Clarity parameters and practice list. | `CARDS`, `FREE_CARDS`, `growth_label`, `band`, `clarity_parameters`, `worked_practice` | card weights and parameter points |
 | `evidence.py` | Honesty and kindness checks: a quote must be the teacher's own words (said, or written in a confirmed example); banned words; emotion words. | `find_quote`, `find_written`, `unnumbered`, `banned_words`, `emotion_words`, `unkind` | `BANNED`, `EMOTIONS` |
 | `profiles.py` | Loads the subject profiles. | `get(profile_id)`, `list_tested(include_untested=False)` | — |
@@ -389,6 +424,7 @@ Full list with reasons: `docs/todo.md`, section 3. The ones you will notice whil
 - **The maths profile is `tested: false`,** so `GET /profiles` is empty unless you pass `include_untested=True`.
 - **The camera code has not run on a real camera yet.** Voice-only works in the harness; open `ml/vision-harness` and try your webcam.
 - **Handwriting reading has only been tried on printed stand-ins.**
+- **Screen sharing mode B with a PDF also uploaded** makes the AI assume page 1 is on screen (section 3.4). Use `material_id: null` for mode B until `page: 0` is agreed.
 - **Gemini's free tier is often busy (503).** The fallback handles it, but a reply can take 10–30 s. Background tasks for `read` and `build_report` are not optional.
 - **Thresholds are provisional** until our labelled clips exist; scores are believable but not yet tuned.
 - **Retrieval is shared-word matching, not embeddings.** Say "retrieval" in the pitch, not "embeddings".
