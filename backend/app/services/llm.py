@@ -26,6 +26,10 @@ OPENAI_FALLBACK_MODEL = "gpt-4o-mini"
 GEMINI_FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-2.5-flash"]
 TIMEOUT_S = 60
 MIN_ATTEMPT_S = 4
+# After a failure a model is not tried again for this long, so a busy model
+# does not cost several seconds on every question while the teacher waits.
+REST_S = 120
+_resting_until: dict[str, float] = {}
 
 
 class LLMError(RuntimeError):
@@ -77,7 +81,9 @@ def _complete(prompt: str, system: str, timeout_s: float = TIMEOUT_S) -> str:
         models += [m for m in GEMINI_FALLBACK_MODELS if m != settings.llm_model]
     deadline = time.monotonic() + timeout_s
     failure: Exception | None = None
-    for model in models:
+    # A model that just failed is skipped for a while, unless every model is resting.
+    rested = [m for m in models if _resting_until.get(m, 0) <= time.monotonic()]
+    for model in rested or models:
         remaining = deadline - time.monotonic()
         if remaining < MIN_ATTEMPT_S and failure is not None:
             break
@@ -87,7 +93,8 @@ def _complete(prompt: str, system: str, timeout_s: float = TIMEOUT_S) -> str:
             return _call(provider, model, prompt, system, max(share, MIN_ATTEMPT_S))
         except httpx.HTTPError as err:
             failure = err
-            log.warning("%s %s failed (%s)", provider, model, _short(err))
+            _resting_until[model] = time.monotonic() + REST_S
+            log.warning("%s %s failed (%s); skipping it for %d s", provider, model, _short(err), REST_S)
     if provider == "openai" or not settings.openai_api_key:
         raise LLMError(f"{provider} call failed: {_short(failure)}") from failure
     log.warning("falling back to OpenAI")
