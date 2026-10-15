@@ -133,3 +133,16 @@ def test_flagging_an_unknown_item_is_404(client, teacher):
     report = get_report(client, teacher).json()
     r = client.post(f"/api/reports/{report['id']}/flags", json={"item_id": "nope"}, headers=as_user(teacher["user"]))
     assert r.status_code == 404
+
+
+def test_an_item_in_a_worked_example_can_be_flagged_and_is_hidden(client, teacher, engine):
+    finish(client, teacher)
+    report = get_report(client, teacher).json()
+    with Session(engine) as db:
+        stored = db.exec(select(Report)).one()
+        stored.data = {**stored.data, "examples": [{"example_id": "e1", "items": [{"id": "ex-item", "kind": "worked", "text": "t"}]}]}
+        db.add(stored)
+        db.commit()
+    url = f"/api/reports/{report['id']}/flags"
+    assert client.post(url, json={"item_id": "ex-item"}, headers=as_user(teacher["user"])).status_code == 204
+    assert get_report(client, teacher).json()["examples"][0]["items"] == []

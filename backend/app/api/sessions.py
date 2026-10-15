@@ -1,12 +1,13 @@
 """Practice sessions. See the Sessions section of docs/api-contract.md."""
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.api.reports import start_report
 from app.core.auth import current_user, own_session
 from app.core.db import get_session
-from app.models import Material, Question, Report, SlideEvent, TeachingSession, User, now
+from app.models import Material, Question, Report, SlideEvent, TeachingSession, User, WorkedExample, now
 from app.schemas.reports import ReportPending
 from app.schemas.sessions import EndOut, SessionIn, SessionListItem, SessionOut, SlideIn
 from app.services import profiles, questions
@@ -60,8 +61,11 @@ def slide_turn(session_id: str, body: SlideIn, user: User = Depends(current_user
     _require_active(session)
     if session.material_id:
         material = db.get(Material, session.material_id)
-        if material and body.page > material.page_count:
-            raise HTTPException(status_code=422, detail="Nomor halaman melebihi jumlah halaman materi.")
+        if material:
+            # pages after the PDF's last page are photos of worked examples
+            last_photo = db.exec(select(func.max(WorkedExample.page)).where(WorkedExample.material_id == material.id)).one()
+            if body.page > max(material.page_count, last_photo or 0):
+                raise HTTPException(status_code=422, detail="Nomor halaman melebihi jumlah halaman materi.")
     seen = db.exec(
         select(SlideEvent).where(
             SlideEvent.session_id == session_id, SlideEvent.page == body.page, SlideEvent.t_ms == body.t_ms
