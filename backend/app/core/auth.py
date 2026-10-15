@@ -4,7 +4,7 @@ from fastapi import Depends, Header, HTTPException
 from sqlmodel import Session
 
 from app.core.db import get_session
-from app.models import TeachingSession, User
+from app.models import Material, TeachingSession, User
 
 
 def current_user(
@@ -23,3 +23,11 @@ def own_session(db: Session, session_id: str, user: User) -> TeachingSession:
     if session is None or session.user_id != user.id:
         raise HTTPException(status_code=404, detail="Sesi tidak ditemukan.")
     return session
+
+
+def own_material(db: Session, material_id: str, user: User) -> Material:
+    """The material, if it belongs to `user`. Someone else's is reported as not found."""
+    material = db.get(Material, material_id)
+    if material is None or material.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Materi tidak ditemukan.")
+    return material
