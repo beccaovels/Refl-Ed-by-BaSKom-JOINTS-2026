@@ -5,6 +5,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app.core.config import settings
 from app.models import TeachingSession, User
+from app.services import llm
 
 
 @pytest.fixture(autouse=True)
@@ -12,6 +13,7 @@ def no_network(monkeypatch):
     """Tests never call a provider, whatever is in the local .env."""
     monkeypatch.setattr(settings, "stt_provider", "fake")
     monkeypatch.setattr(settings, "llm_provider", "fake")
+    llm._resting_until.clear()  # no test inherits another test's failed model
 
 
 @pytest.fixture

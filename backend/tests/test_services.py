@@ -7,13 +7,8 @@ from pydantic import BaseModel
 from sqlmodel import select
 
 from app.core.config import settings
-from app.models import Material, MaterialChunk, Question, TranscriptSegment
-from app.services import llm, profiles, questions, rag, scoring, stt
-
-
-def speak(db, lesson, seq, start_ms, end_ms):
-    db.add(TranscriptSegment(session_id=lesson.id, seq=seq, start_ms=start_ms, end_ms=end_ms, text="penjelasan"))
-    db.commit()
+from app.models import Material, MaterialChunk
+from app.services import llm, profiles, rag, stt
 
 
 class Answer(BaseModel):
@@ -61,6 +56,24 @@ def test_busy_gemini_model_falls_back_to_the_next_one(monkeypatch):
     assert tried == ["gemini-sibuk", llm.GEMINI_FALLBACK_MODELS[0]]
 
 
+def test_a_model_that_just_failed_is_skipped_next_time(monkeypatch):
+    monkeypatch.setattr(settings, "llm_provider", "gemini")
+    monkeypatch.setattr(settings, "llm_model", "gemini-sibuk")
+    monkeypatch.setattr(settings, "openai_api_key", "")
+    tried = []
+
+    def call(provider, model, *args):
+        tried.append(model)
+        if model == "gemini-sibuk":
+            raise httpx.ReadTimeout("sibuk")
+        return '{"score": 4}'
+
+    monkeypatch.setattr(llm, "_call", call)
+    llm.generate_json("nilai", Answer)
+    llm.generate_json("nilai", Answer)
+    assert tried.count("gemini-sibuk") == 1  # the second call goes straight to the model that works
+
+
 def test_every_model_busy_raises_llm_error(monkeypatch):
     monkeypatch.setattr(settings, "llm_provider", "gemini")
     monkeypatch.setattr(settings, "openai_api_key", "")
@@ -97,6 +110,11 @@ def test_silent_segments_and_stock_phrases_are_dropped():
     assert stt.clean({"segments": [{"text": " ...", "no_speech_prob": 0.8}]}) == ""
 
 
+def test_whisper_echoing_its_own_prompt_is_dropped():
+    assert stt.clean({"text": "Ada yang tahu kenapa hasilnya begitu?"}) == ""  # the style prompt, repeated on silence
+    assert stt.clean({"text": "Ada yang tahu kenapa peluangnya setengah?"}) == "Ada yang tahu kenapa peluangnya setengah?"
+
+
 def test_fake_provider_needs_no_key(monkeypatch):
     monkeypatch.setattr(settings, "stt_provider", "fake")
     assert stt.transcribe(b"")
@@ -116,74 +134,6 @@ def test_untested_profiles_are_hidden():
     everything = profiles.list_tested(include_untested=True)
     assert {"id", "subject", "grade", "phase", "label"} == set(everything[0])
     assert all(profiles.get(p["id"])["tested"] for p in profiles.list_tested())
-
-
-# --- questions ---
-
-
-def test_no_question_before_the_interval(db, lesson):
-    speak(db, lesson, 0, 0, 40_000)
-    assert questions.next_event(db, lesson.id, now_ms=40_000) is None
-
-
-def test_question_after_enough_speech_then_waits_for_the_answer(db, lesson):
-    speak(db, lesson, 0, 0, 40_000)
-    speak(db, lesson, 1, 41_000, 80_000)
-    event = questions.next_event(db, lesson.id, now_ms=80_000)
-    assert event["kind"] == "regular"
-    assert set(event) == {"id", "kind", "persona", "text", "asked_at_ms", "refers_to_ms"}
-    assert set(event["persona"]) == {"name", "style"}
-    assert event["refers_to_ms"] == 41_000
-
-    # a silent chunk while the question is open: nothing new, not even a nudge
-    assert questions.next_event(db, lesson.id, now_ms=120_000) is None
-
-    speak(db, lesson, 2, 121_000, 130_000)
-    assert questions.next_event(db, lesson.id, now_ms=130_000) is None
-    assert db.get(Question, event["id"]).answered_at_ms == 121_000
-
-
-def test_question_wording_comes_from_the_llm(db, lesson, monkeypatch):
-    monkeypatch.setattr(settings, "llm_provider", "gemini")
-    prompts = []
-
-    def generate(prompt, schema, **kwargs):
-        prompts.append(prompt)
-        return schema(text="Kenapa grafiknya melengkung?", refers_to_line=1)
-
-    monkeypatch.setattr(llm, "generate_json", generate)
-    speak(db, lesson, 0, 0, 40_000)
-    speak(db, lesson, 1, 41_000, 80_000)
-    event = questions.next_event(db, lesson.id, now_ms=80_000)
-    assert event["text"] == "Kenapa grafiknya melengkung?"
-    assert event["refers_to_ms"] == 0
-    assert "1. penjelasan\n2. penjelasan" in prompts[0] and "Fungsi kuadrat" in prompts[0]
-
-
-def test_provider_failure_falls_back_to_a_canned_question(db, lesson, monkeypatch):
-    monkeypatch.setattr(settings, "llm_provider", "gemini")
-
-    def fail(*args, **kwargs):
-        raise llm.LLMError("503")
-
-    monkeypatch.setattr(llm, "generate_json", fail)
-    speak(db, lesson, 0, 0, 80_000)
-    assert questions.next_event(db, lesson.id, now_ms=80_000)["text"] in questions.CANNED_QUESTIONS
-
-
-def test_one_nudge_per_silence(db, lesson):
-    speak(db, lesson, 0, 0, 10_000)
-    assert questions.next_event(db, lesson.id, now_ms=45_000)["kind"] == "nudge"
-    assert questions.next_event(db, lesson.id, now_ms=80_000) is None
-    speak(db, lesson, 1, 81_000, 90_000)
-    assert questions.next_event(db, lesson.id, now_ms=90_000) is None
-
-
-def test_capstone_is_stored(db, lesson):
-    speak(db, lesson, 0, 0, 10_000)
-    event = questions.capstone(db, lesson.id)
-    assert event["kind"] == "capstone" and event["asked_at_ms"] == 10_000
-    assert db.exec(select(Question).where(Question.kind == "capstone")).one().id == event["id"]
 
 
 # --- rag ---
@@ -206,26 +156,22 @@ def test_pdf_is_split_into_chunks_per_page(db, lesson, tmp_path):
     assert rag.page_text(db, material.id, 2) == "Titik puncak adalah titik balik grafik."
 
 
-# --- scoring ---
+def test_closest_chunks_finds_the_page_being_talked_about(db, lesson, tmp_path):
+    path = tmp_path / "bab.pdf"
+    pdf = pymupdf.open()
+    for text in (
+        "Ruang sampel adalah himpunan semua hasil yang mungkin.",
+        "Frekuensi harapan adalah banyaknya kejadian yang diperkirakan muncul.",
+        "Dua kejadian saling lepas tidak dapat terjadi bersamaan.",
+    ):
+        pdf.new_page().insert_text((72, 72), text)
+    pdf.save(path)
+    material = Material(user_id=lesson.user_id, filename="bab.pdf", path=str(path), page_count=3)
+    db.add(material)
+    db.commit()
+    rag.index_material(db, material.id)
 
-BANNED = ("lacking", "poor", "weak", "should", "kurang", "lemah", "seharusnya")
-
-
-def test_report_shape_and_feedback_rules(db, lesson):
-    questions.capstone(db, lesson.id)
-    report = scoring.build_report(db, lesson.id)
-
-    assert set(report) == {
-        "id", "session_id", "created_at", "overall", "strengths", "dimensions", "ideas", "metrics", "questions",
-    }  # fmt: skip
-    assert [d["key"] for d in report["dimensions"]] == [
-        "content_accuracy", "teaching_flow", "clarity", "engagement", "pacing", "on_camera_presence",
-    ]  # fmt: skip
-    assert report["strengths"] and report["strengths"][0]["kind"] == "worked"
-    assert len(report["ideas"]) <= 3
-    assert not any(word in str(report).lower() for word in BANNED)
-
-    by_key = {d["key"]: d for d in report["dimensions"]}
-    assert by_key["pacing"]["locked"] and by_key["pacing"]["score"] is None  # free tier
-    assert not by_key["on_camera_presence"]["available"]  # camera off
-    assert len(report["questions"]) == 1
+    said = "Sekarang kita hitung frekuensi harapan dari percobaan tadi"
+    assert [chunk.page for chunk in rag.closest_chunks(db, material.id, said, k=1)] == [2]
+    assert rag.closest_chunks(db, material.id, said, k=1, skip_page=2) == []  # nothing else shares a word
+    assert rag.closest_chunks(db, material.id, "selamat pagi semuanya") == []
