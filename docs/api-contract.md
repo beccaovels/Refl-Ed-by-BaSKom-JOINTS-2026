@@ -103,6 +103,7 @@ At most one event per audio reply. What the room does with each `kind`:
 ### Slides
 
 `POST /sessions/{id}/slides` — `{ page, t_ms }` → 204. Sent on every page turn, and once for page 1 at start.
+- `page: 0` means no slide text is on screen: the teacher switched the stage to a shared screen or window (screen sharing happens in the browser only and is never uploaded). Send the PDF page again when they switch back. Without a PDF, send nothing for screen sharing.
 - A `page` above the PDF's `page_count` is a photo of a worked example (`Example.page`). Send it when the teacher switches the stage to that photo, and the PDF page again when they switch back.
 
 ### Signals

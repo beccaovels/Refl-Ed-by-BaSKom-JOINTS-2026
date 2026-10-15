@@ -65,5 +65,5 @@ class EndOut(BaseModel):
 
 
 class SlideIn(BaseModel):
-    page: int = Field(ge=1)
+    page: int = Field(ge=0)  # 0 means no slide text on screen: the teacher is sharing their screen
     t_ms: int = Field(ge=0)
