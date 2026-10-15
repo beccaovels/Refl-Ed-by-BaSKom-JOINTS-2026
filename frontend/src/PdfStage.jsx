@@ -10,7 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'; // the legacy build also runs on older browsers
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { authHeaders, materialFileUrl } from './api.js';
+import { authHeaders } from './api.js';
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -20,8 +20,9 @@ const RESIZE_DELAY_MS = 150;
 
 const typing = (el) => el && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable);
 
+// `url` is the PDF to show; pages are numbered from 1 within it, and `onPageChange` receives those numbers.
 // `active` is false while the stage shows a shared screen instead: the viewer stays loaded, but ignores the keys.
-export default function PdfStage({ materialId, name, initialPage = 1, onPageChange, active = true }) {
+export default function PdfStage({ url, name, initialPage = 1, onPageChange, active = true }) {
     const [pdf, setPdf] = useState(null);
     const [status, setStatus] = useState('loading'); // loading | ready | error
     const [page, setPage] = useState(initialPage);
@@ -37,7 +38,7 @@ export default function PdfStage({ materialId, name, initialPage = 1, onPageChan
     useEffect(() => {
         let gone = false;
         const task = pdfjs.getDocument({
-            url: materialFileUrl(materialId),
+            url,
             httpHeaders: authHeaders(),
             isEvalSupported: false, // no code generated from the file
             disableAutoFetch: true, // fetch what is shown, not the whole file in the background
@@ -60,7 +61,7 @@ export default function PdfStage({ materialId, name, initialPage = 1, onPageChan
             pages.current.clear();
             task.destroy();
         };
-    }, [materialId]);
+    }, [url]);
 
     // Follow the size of the stage.
     useEffect(() => {
