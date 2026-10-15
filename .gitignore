@@ -1,0 +1,33 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# node
+node_modules/
+dist/
+
+# local data: database, uploaded PDFs, audio
+backend/data/*
+!backend/data/.gitkeep
+
+# large source PDFs (share by link, not git)
+docs/references/*.pdf
+
+# evaluation clips (video/audio stay local)
+ml/eval/clips/
+
+# personal Claude settings
+.claude/settings.local.json
+CLAUDE.local.md
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

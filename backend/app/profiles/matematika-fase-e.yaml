@@ -1,0 +1,40 @@
+# One profile per subject and phase. Data only: the rubric dimensions, weights and
+# feedback rules are the same for every profile and live in code and docs/delivery-grading.md.
+# Sources and page numbers: docs/rubric-sources.md
+
+id: matematika-fase-e
+subject: Matematika
+grade: 10
+phase: E
+label: Matematika Kelas X
+
+# false until the profile has its source documents and a strong + weak sample
+# transcript that pass the checks. Untested profiles are not shown in Setup.
+tested: false
+
+demo_chapter: ""        # TODO: chosen by the team
+
+# What "clear" means in this subject. From the five process elements,
+# Panduan Mata Pelajaran Matematika 2025, p. 11.
+clarity_anchors:
+  - Menjelaskan alasan di balik rumus atau prosedur, tidak hanya menyebutkan rumusnya (penalaran dan pembuktian)
+  - Menunjukkan langkah penyelesaian masalah dari memahami soal sampai menafsirkan hasil (pemecahan masalah)
+  - Memakai lebih dari satu representasi, misalnya kata-kata, simbol, tabel, atau gambar (representasi)
+  - Mengaitkan materi dengan konsep lain atau dengan kehidupan sehari-hari (koneksi)
+  - Menjelaskan istilah baru saat pertama kali dipakai (komunikasi)
+
+# Contexts the ministry's guide recommends (pp. 3, 268). Used to seed "an idea you could try".
+context_seeds:
+  - kearifan lokal dan kehidupan sehari-hari di sekitar murid
+  - literasi finansial (tabungan, pinjaman, bunga)
+  - perubahan iklim dan lingkungan
+  - kesehatan
+
+student_persona:
+  age: 15-16
+  style: Murid SMA kelas X; bertanya singkat dengan bahasa sehari-hari, dan bertanya arti istilah yang belum dijelaskan.
+
+# Documented student misconceptions for the demo chapter, copied from the
+# Buku Panduan Guru Matematika Kelas X with page numbers. Never invented.
+# Shape: { topic: "", misconception: "", source_page: 0 }
+misconceptions: []      # TODO: needs the grade 10 teacher's book
