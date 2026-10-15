@@ -16,18 +16,6 @@ Indonesian teachers rehearse a lesson in a room that looks like a video call. Th
 - [Troubleshooting](#troubleshooting)
 - [Working together](#working-together)
 
-## Read first
-
-| File | What it is |
-|---|---|
-| `docs/team-guide.md` | **Start here.** Setup, daily routine, where every page and module lives |
-| `docs/prd.md` | The PRD (v2, 13 Oct). Product, scope, acceptance criteria |
-| `docs/plan.md` | The full plan: context, architecture, grading, schedule, who does what |
-| `docs/api-contract.md` | The agreement between frontend and backend. Change it before changing code |
-| `docs/delivery-grading.md` | Grading and feedback rules |
-| `docs/ai-pipeline.md` | How speech-to-text, the AI student, metrics and scoring fit together |
-| `docs/todo.md` | What is still unproven |
-
 ## Product overview
 
 ### The problem
