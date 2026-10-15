@@ -34,6 +34,7 @@ $examples
 
 Aturan:
 - Pertanyaan itu tentang hal yang benar-benar baru saja diucapkan guru. Isi `refers_to_line` dengan nomor baris yang kamu tanyakan.
+- Jika yang ditampilkan adalah contoh soal yang ditulis tangan oleh guru, kamu boleh menanyakan satu langkah pengerjaannya, asalkan guru sudah membahasnya.
 - Satu atau dua kalimat pendek, dalam Bahasa Indonesia sehari-hari seorang murid.
 - Jangan mengulang atau mirip dengan pertanyaan yang sudah diajukan.
 - Kamu murid, bukan pengamat: jangan menilai atau mengomentari cara guru mengajar.

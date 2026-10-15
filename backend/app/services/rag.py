@@ -1,4 +1,7 @@
-"""Material lookup: split the teacher's PDF into chunks and find the ones closest to the transcript."""
+"""Material lookup: split the teacher's PDF into chunks and find the ones closest to the transcript.
+
+A photo of a worked example is a page too: `examples.py` reads it and stores its text here with `index_page`.
+"""
 
 import math
 import re
@@ -22,11 +25,22 @@ def index_material(db: Session, material_id: str) -> None:
     material = db.get(Material, material_id)
     if material is None:
         raise ValueError(f"Material {material_id} not found")
-    db.exec(delete(MaterialChunk).where(MaterialChunk.material_id == material_id))
+    if not material.path:
+        return  # photos only: there is no PDF to split
     with pymupdf.open(material.path) as pdf:
+        # Pages after the PDF's last one are photos of worked examples; their text stays.
+        db.exec(delete(MaterialChunk).where(MaterialChunk.material_id == material_id, MaterialChunk.page <= len(pdf)))
         for page_number, page in enumerate(pdf, start=1):
             for order, text in enumerate(_chunks(page)):
                 db.add(MaterialChunk(material_id=material_id, page=page_number, order=order, text=text))
+    db.commit()
+
+
+def index_page(db: Session, material_id: str, page: int, texts: list[str]) -> None:
+    """Replace the chunks of one page with `texts`. For a page that is not PDF text, such as a photo that was read."""
+    db.exec(delete(MaterialChunk).where(MaterialChunk.material_id == material_id, MaterialChunk.page == page))
+    for order, text in enumerate(texts):
+        db.add(MaterialChunk(material_id=material_id, page=page, order=order, text=text))
     db.commit()
 
 

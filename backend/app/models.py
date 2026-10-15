@@ -28,9 +28,24 @@ class Material(SQLModel, table=True):
     __tablename__ = "materials"
     id: str = Field(default_factory=new_id, primary_key=True)
     user_id: str = Field(foreign_key="users.id", index=True)
+    filename: Optional[str] = None  # no PDF: the material holds only photos of worked examples
+    path: Optional[str] = None
+    page_count: int = 0  # pages of the PDF; photos are numbered after these
+
+
+class WorkedExample(SQLModel, table=True):
+    __tablename__ = "worked_examples"
+    # a photo of the teacher's handwritten question and working, shown as an extra page of the material
+    __table_args__ = (UniqueConstraint("material_id", "page"),)
+    id: str = Field(default_factory=new_id, primary_key=True)
+    material_id: str = Field(foreign_key="materials.id", index=True)
+    page: int
     filename: str
     path: str
-    page_count: int = 0
+    status: str = "reading"  # reading | ready | unreadable | failed
+    reading: Optional[dict] = Field(default=None, sa_column=Column(JSON))  # what was read from the photo
+    check_result: Optional[dict] = Field(default=None, sa_column=Column(JSON))  # `check` in the API
+    created_at: datetime = Field(default_factory=now)
 
 
 class MaterialChunk(SQLModel, table=True):
