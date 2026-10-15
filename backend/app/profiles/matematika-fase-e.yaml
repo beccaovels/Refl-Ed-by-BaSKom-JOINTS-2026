@@ -32,6 +32,24 @@ clarity_parameters:
   - title: Lebih dari satu representasi
     look_for: Gagasan yang sama disajikan dengan lebih dari satu cara, misalnya kata-kata, simbol, tabel, grafik, atau gambar.
 
+# What a clearly set-out worked example looks like. Used for the Clarity parameter "Langkah
+# pengerjaan tertata dan dijelaskan" and for feedback on a photo of the teacher's own working.
+# The books give no fixed layout for a worked example (no "Diketahui / Ditanya / Jawab" in this
+# chapter), so these come from how the books present their own, plus Polya's phases.
+worked_example_practice:
+  # Student book p. 244: the sample space as a table with the event shaded. Teacher's book p. 257.
+  - title: Asal angkanya terlihat
+    look_for: Hasil yang dihitung dituliskan atau digambar (daftar, tabel, atau diagram ruang sampel), bukan hanya banyaknya.
+  # Student book p. 244: 2/36 = 1/18. Polya, "carrying out the plan".
+  - title: Satu langkah per baris
+    look_for: Tiap baris berisi satu langkah dan mengikuti baris sebelumnya, termasuk bentuk sebelum dan sesudah disederhanakan.
+  # Teacher's book p. 257: "Oleh karena ..., maka ...". Polya, "looking back".
+  - title: Jawaban akhir menjawab soal
+    look_for: Jawaban akhir ditulis sebagai kesimpulan yang menjawab pertanyaan soal.
+  # Panduan Mata Pelajaran Matematika 2025, p. 11 (penalaran). Teacher's book p. 257 ("bernalar").
+  - title: Alasan tiap langkah diucapkan
+    look_for: Saat menjelaskan, guru menyebut mengapa langkah itu dilakukan, bukan hanya hasilnya.
+
 # What "accurate" means in this subject, added to the scoring prompt.
 accuracy_focus: setiap langkah perhitungan dan hasil akhirnya, serta rumus yang disebutkan.
 

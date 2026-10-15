@@ -22,11 +22,11 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.models import Question, SignalBin, SlideEvent, TeachingSession, TranscriptSegment, User
-from app.services import delivery, evidence, llm, metrics, profiles, rag
+from app.services import delivery, evidence, examples, llm, metrics, profiles, rag
 from app.services.metrics import LessonMetrics
 from app.services.questions import ASKING
 from app.services.report_schema import ReportOut
-from app.services.rubric import CARDS, FREE_CARDS, LABELS, Card, band, clarity_parameters, growth_label
+from app.services.rubric import CARDS, FREE_CARDS, LABELS, Card, band, clarity_parameters, growth_label, worked_practice
 
 log = logging.getLogger(__name__)
 
@@ -38,8 +38,12 @@ ANSWER_CHARS = 300
 ANSWER_WINDOW_MS = 60_000  # what the teacher says in the minute after starting to answer
 MAX_IDEAS = 3
 MAX_STRENGTHS = 3
-UNPROVEN_LEVEL = 3  # a 4 or 5 whose quote is not in the transcript drops to this
+UNPROVEN_LEVEL = 3  # a 4 or 5 whose quote is not the teacher's own words drops to this
+# "The working is not right" may only be said when the check named where: below this level needs a named step.
+UNNAMED_SLIP_LEVEL = 3
 FLOOR = 0.2  # a computed parameter at its lowest earns what level 1 earns, so both kinds share one scale
+# Rated only when the teacher confirmed a photo of their own working and showed it.
+EXAMPLE_PARAMETERS = ("worked_example", "worked_steps")
 
 # Target bands (zero_low, full_low, full_high, zero_high). Provisional until tuned on our labelled clips.
 WPM_BAND = (60, 100, 160, 210)
@@ -75,6 +79,13 @@ class IdeaDraft(BaseModel):
     ready_to_use: str
 
 
+class ExampleFeedback(BaseModel):
+    page: int
+    kind: Literal["worked", "noticed"]
+    text: str
+    quote: str
+
+
 class Assessment(BaseModel):
     """What the LLM returns for one lesson."""
 
@@ -82,6 +93,7 @@ class Assessment(BaseModel):
     feedback: list[Feedback]
     summary: str
     ideas: list[IdeaDraft]
+    example_feedback: list[ExampleFeedback] = Field(default_factory=list)
 
 
 def build_report(db: Session, session_id: str) -> dict:
@@ -106,28 +118,37 @@ def build_report(db: Session, session_id: str) -> dict:
     numbers = metrics.compute(db, session_id)
     answers = {q.id: _said_after(q.answered_at_ms, segments) for q in asked}
     answered = any(answers.values()) or bool(replies)
+    worked = _example_rows(db, session, numbers)
+    own_pages = {row["page"] for row in worked}
+    # Only an example the teacher confirmed and showed counts: until confirmed, its text is our reading, not their words.
+    counted = [row for row in worked if row["confirmed"] and row["shown_at_ms"] is not None]
+    written = {row["page"]: _lines(row["reading"]) for row in counted}
+    shown_at = {row["page"]: row["shown_at_ms"] for row in counted}
 
     enough_speech = numbers.words >= MIN_WORDS
     sample = llm.is_fake()
     assessment: Assessment | None = None
-    wanted = _llm_parameters(profile, answered)
+    wanted = _llm_parameters(profile, answered, counted)
     if enough_speech:
         if sample:
-            assessment = _sample_assessment(wanted)
+            assessment = _sample_assessment(wanted, counted)
         else:
             assessment = llm.generate_json(
-                _prompt(db, session, profile, segments, asked, answers, replies, wanted), Assessment
+                _prompt(db, session, profile, segments, asked, answers, replies, wanted, counted, own_pages), Assessment
             )
 
-    levels = _levels(assessment, {p["key"] for p in wanted}, segments, sample)
+    levels = _levels(assessment, {p["key"] for p in wanted}, segments, written, sample, _slip_named(counted))
     fractions = {key: level / 5 for key, level in levels.items()}
-    fractions.update(_computed(numbers))
+    fractions.update(_computed(numbers, own_pages))
     signals, moments = delivery.score(bins, asked, segments)
     fractions.update(signals)
 
-    items = _items(assessment, segments, sample) if assessment else {}
+    items = _items(assessment, segments, written, shown_at, sample) if assessment else {}
     for key, extra in _computed_items(numbers, segments).items():
         items.setdefault(key, []).extend(extra)
+    if assessment:
+        for page, about in _example_items(assessment, segments, written, shown_at, sample).items():
+            next(row for row in counted if row["page"] == page)["items"] = about
 
     dimensions = []
     for card in CARDS:
@@ -161,6 +182,7 @@ def build_report(db: Session, session_id: str) -> dict:
         "metrics": numbers.public(),
         "moments": moments if any(d["key"] == "delivery" and d["score"] is not None for d in dimensions) else [],
         "questions": _exchanges(asked, answers, replies, reactions, segments),
+        "examples": worked,
     }
     return ReportOut.model_validate(report).model_dump()
 
@@ -168,10 +190,15 @@ def build_report(db: Session, session_id: str) -> dict:
 # --- the LLM's part ---
 
 
-def _llm_parameters(profile: dict, answered: bool) -> list[dict]:
+def _llm_parameters(profile: dict, answered: bool, counted: list[dict]) -> list[dict]:
     """Every parameter the LLM rates for this lesson: key, card, title, what to look for."""
     first, second = clarity_parameters(profile)
-    named = {"profile_a": first, "profile_b": second}
+    practice = " ".join(f"({n}) {p['look_for']}" for n, p in enumerate(worked_practice(profile), start=1))
+    named = {
+        "profile_a": first,
+        "profile_b": second,
+        "worked_steps": {"look_for": f"Pengerjaan contoh soal yang ditulis guru tertata dan dijelaskan. {practice}"},
+    }
     wanted = []
     for card in CARDS:
         for p in card.parameters:
@@ -179,6 +206,10 @@ def _llm_parameters(profile: dict, answered: bool) -> list[dict]:
                 continue
             if p.key in ("answers_correct", "builds_on_questions") and not answered:
                 continue  # no student question was answered, so there is nothing to rate
+            if p.key in EXAMPLE_PARAMETERS and not counted:
+                continue  # no worked example was confirmed and shown
+            if p.key == "worked_example" and not any(_checked(row["check"]) for row in counted):
+                continue  # the working could not be compared with anything, so its correctness is not rated
             custom = named.get(p.key, {})
             wanted.append(
                 {
@@ -200,6 +231,8 @@ def _prompt(
     answers: dict[str, str],
     replies: list[Question],
     wanted: list[dict],
+    counted: list[dict],
+    own_pages: set[int],
 ) -> str:
     exchanges = [
         (q.asked_at_ms, f"[{_clock(q.asked_at_ms)}] Murid bertanya: {q.text}\n  Jawaban guru: {answers[q.id] or '(belum dijawab)'}")
@@ -219,7 +252,8 @@ def _prompt(
         label=profile.get("label", session.class_name),
         chapter=" - ".join(part for part in (session.chapter, session.sub_chapter) if part),
         phase_expectation=profile.get("phase_expectation") or "(ikuti materi yang diunggah guru)",
-        material=_material(db, session) or "(guru tidak mengunggah materi; nilai dari konsistensi penjelasannya)",
+        material=_material(db, session, own_pages) or "(guru tidak mengunggah materi; nilai dari konsistensi penjelasannya)",
+        examples="\n\n".join(_shown_to_model(row) for row in counted) or "(guru tidak menampilkan contoh soal tulisan tangan)",
         transcript="\n".join(f"[{_clock(s.start_ms)}] {s.text}" for s in segments),
         student_questions="\n".join(text for _, text in sorted(exchanges)) or "(tidak ada pertanyaan murid)",
         parameters="\n".join(f"- `{p['key']}` ({p['title']}): {p['look_for']}" for p in wanted),
@@ -229,18 +263,27 @@ def _prompt(
     )
 
 
-def _material(db: Session, session: TeachingSession) -> str:
-    """Text of the pages the teacher showed, in the order first shown."""
+def _material(db: Session, session: TeachingSession, own_pages: set[int]) -> str:
+    """Text of the slides the teacher showed, in the order first shown.
+
+    The teacher's handwritten examples are left out: they are what is being
+    looked at, not the reference to judge accuracy against.
+    """
     if not session.material_id:
         return ""
     turns = db.exec(select(SlideEvent).where(SlideEvent.session_id == session.id).order_by(SlideEvent.t_ms)).all()
-    pages = list(dict.fromkeys(t.page for t in turns)) or [1]
+    pages = [page for page in dict.fromkeys(t.page for t in turns) or [1] if page not in own_pages]
     text = "\n".join(f"[Halaman {page}] {rag.page_text(db, session.material_id, page)}" for page in pages)
     return text[:MATERIAL_CHARS]
 
 
 def _levels(
-    assessment: Assessment | None, wanted: set[str], segments: list[TranscriptSegment], sample: bool
+    assessment: Assessment | None,
+    wanted: set[str],
+    segments: list[TranscriptSegment],
+    written: dict[int, list[str]],
+    sample: bool,
+    slip_named: bool,
 ) -> dict[str, int]:
     """The level per parameter, after the evidence check."""
     levels: dict[str, int] = {}
@@ -248,19 +291,27 @@ def _levels(
         if rating.key not in wanted:
             continue  # only parameters that were asked for count
         level = rating.level
-        if level > UNPROVEN_LEVEL and not sample and evidence.find_quote(rating.quote, segments) is None:
+        if level > UNPROVEN_LEVEL and not sample and _said_or_wrote(rating.quote, segments, written) == (None, None):
             level = UNPROVEN_LEVEL
+        if rating.key == "worked_example" and not slip_named:
+            level = max(level, UNNAMED_SLIP_LEVEL)
         levels[rating.key] = level
     return levels
 
 
-def _items(assessment: Assessment, segments: list[TranscriptSegment], sample: bool) -> dict[str, list[dict]]:
-    """Feedback items per card. One `worked` and one `noticed` at most, each with a quote that exists."""
+def _items(
+    assessment: Assessment,
+    segments: list[TranscriptSegment],
+    written: dict[int, list[str]],
+    shown_at: dict[int, int],
+    sample: bool,
+) -> dict[str, list[dict]]:
+    """Feedback items per card. One `worked` and one `noticed` at most, each quoting the teacher's own words."""
     kept: dict[str, list[dict]] = {}
     for draft in assessment.feedback:
-        t_ms = evidence.find_quote(draft.quote, segments)
-        if t_ms is None and not sample:
-            log.info("Dropped a feedback item: its quote is not in the transcript")
+        t_ms, page = _said_or_wrote(draft.quote, segments, written)
+        if t_ms is None and page is None and not sample:
+            log.info("Dropped a feedback item: its quote is neither in the transcript nor in a confirmed example")
             continue
         if evidence.unkind(draft.text):
             log.info("Dropped a feedback item: wording rule")
@@ -268,8 +319,115 @@ def _items(assessment: Assessment, segments: list[TranscriptSegment], sample: bo
         card_items = kept.setdefault(draft.dimension, [])
         if any(item["kind"] == draft.kind for item in card_items):
             continue
-        card_items.append(_item(draft.kind, draft.text.strip(), draft.quote.strip(), t_ms))
+        when = shown_at[page] if page is not None else t_ms
+        quote = evidence.unnumbered(draft.quote) if page is not None else draft.quote.strip()
+        card_items.append(_item(draft.kind, draft.text.strip(), quote, when, page))
     return kept
+
+
+def _example_items(
+    assessment: Assessment,
+    segments: list[TranscriptSegment],
+    written: dict[int, list[str]],
+    shown_at: dict[int, int],
+    sample: bool,
+) -> dict[int, list[dict]]:
+    """Feedback on each worked example, by page: one `worked` and one `noticed` at most, the strength first.
+
+    A quote may be a line the teacher wrote in that example, or something they said.
+    """
+    kept: dict[int, list[dict]] = {}
+    for draft in assessment.example_feedback:
+        if draft.page not in written or evidence.unkind(draft.text):
+            continue
+        wrote = evidence.find_written(draft.quote, {draft.page: written[draft.page]})
+        t_ms = None if wrote else evidence.find_quote(draft.quote, segments)
+        if wrote is None and t_ms is None and not sample:
+            log.info("Dropped feedback on a worked example: its quote was neither written there nor said")
+            continue
+        about = kept.setdefault(draft.page, [])
+        if any(item["kind"] == draft.kind for item in about):
+            continue
+        quote = evidence.unnumbered(draft.quote) if wrote else draft.quote.strip()
+        about.append(_item(draft.kind, draft.text.strip(), quote, shown_at[draft.page] if wrote else t_ms, wrote))
+    return {page: sorted(about, key=lambda item: item["kind"] != "worked") for page, about in kept.items()}
+
+
+def _said_or_wrote(
+    quote: str | None, segments: list[TranscriptSegment], written: dict[int, list[str]]
+) -> tuple[int | None, int | None]:
+    """Where a quote is the teacher's own: (when they said it, None), (None, page they wrote it on), or (None, None)."""
+    t_ms = evidence.find_quote(quote, segments)
+    if t_ms is not None:
+        return t_ms, None
+    return None, evidence.find_written(quote, written)
+
+
+# --- the teacher's handwritten worked examples ---
+
+
+def _example_rows(db: Session, session: TeachingSession, numbers: LessonMetrics) -> list[dict]:
+    """The `examples` of the report: every photo of the material, with when and how long it was on stage."""
+    if not session.material_id:
+        return []
+    turns = db.exec(select(SlideEvent).where(SlideEvent.session_id == session.id).order_by(SlideEvent.t_ms)).all()
+    first_shown: dict[int, int] = {}
+    for turn in turns:
+        first_shown.setdefault(turn.page, turn.t_ms)
+    on_stage = {slide["page"]: slide["ms"] for slide in numbers.time_per_slide}
+    rows = []
+    for example in examples.for_material(db, session.material_id):
+        shown = examples.public(example)
+        rows.append(
+            {
+                "example_id": example.id,
+                "page": example.page,
+                "shown_at_ms": first_shown.get(example.page),
+                "shown_ms": on_stage.get(example.page, 0),
+                "confirmed": example.status == "confirmed",
+                "reading": shown["reading"],
+                "check": shown["check"],
+                "items": [],
+            }
+        )
+    return rows
+
+
+def _lines(reading: dict) -> list[str]:
+    """Everything the teacher wrote in one example, a line each."""
+    return [reading["question"], *(step["text"] for step in reading["steps"]), reading["final_answer"]]
+
+
+def _checked(check: dict | None) -> bool:
+    """True when the check could say anything at all about the working."""
+    return bool(check) and (check["answer"] != "cannot_tell" or any(s["status"] != "cannot_tell" for s in check["steps"]))
+
+
+def _slip_named(counted: list[dict]) -> bool:
+    """True when a check points at a step, or at the final answer, to look at again."""
+    return any(
+        row["check"]["answer"] == "recheck" or any(step["status"] == "recheck" for step in row["check"]["steps"])
+        for row in counted
+        if row["check"]
+    )
+
+
+def _shown_to_model(row: dict) -> str:
+    """One confirmed worked example as the rubric prompt sees it: what was written, and what the check found."""
+    reading, check = row["reading"], row["check"]
+    lines = [f"[Halaman {row['page']}, ditampilkan sejak {_clock(row['shown_at_ms'])}]", f"Soal: {reading['question'] or '(tidak tertulis)'}"]
+    lines += [f"{step['n']}. {step['text']}" for step in reading["steps"]]
+    lines.append(f"Jawaban akhir: {reading['final_answer'] or '(tidak tertulis)'}")
+    notes = [f"langkah {step['n']}: {step['note']}" for step in check["steps"] if step["status"] == "recheck"]
+    if check["answer"] == "recheck":
+        notes.append("jawaban akhir berbeda dari hitungan kami" + (f" ({check['our_answer']})" if check["our_answer"] else ""))
+    if notes:
+        lines.append("Catatan pemeriksaan: " + "; ".join(notes))
+    elif _checked(check):
+        lines.append("Catatan pemeriksaan: langkah dan jawaban akhir sejalan dengan hitungan kami.")
+    else:
+        lines.append("Catatan pemeriksaan: tidak diperiksa.")
+    return "\n".join(lines)
 
 
 def _ideas(assessment: Assessment | None) -> list[dict]:
@@ -282,10 +440,20 @@ def _ideas(assessment: Assessment | None) -> list[dict]:
     return ideas[:MAX_IDEAS]
 
 
-def _sample_assessment(wanted: list[dict]) -> Assessment:
+def _sample_assessment(wanted: list[dict], counted: list[dict]) -> Assessment:
     """LLM_PROVIDER=fake: fixed levels and sample texts, so pages can be built with no key."""
     return Assessment(
         ratings=[Rating(key=p["key"], level=4) for p in wanted],
+        example_feedback=[
+            ExampleFeedback(
+                page=row["page"],
+                kind="worked",
+                text="(Contoh) Pada tulisan Anda, banyaknya anggota ruang sampel ditulis lebih dulu, "
+                "sehingga murid melihat dari mana angkanya berasal.",
+                quote=row["reading"]["steps"][0]["text"] if row["reading"]["steps"] else row["reading"]["question"],
+            )
+            for row in counted
+        ],
         feedback=[
             Feedback(
                 dimension="engagement",
@@ -322,8 +490,12 @@ def _sample_assessment(wanted: list[dict]) -> Assessment:
 # --- the computed part ---
 
 
-def _computed(numbers: LessonMetrics) -> dict[str, float]:
-    """Fraction of full marks (0.2-1.0) for each computed parameter that could be measured."""
+def _computed(numbers: LessonMetrics, own_pages: set[int] = frozenset()) -> dict[str, float]:
+    """Fraction of full marks (0.2-1.0) for each computed parameter that could be measured.
+
+    `own_pages` are the teacher's handwritten examples: a worked example rightly
+    stays on stage a long time, so it is left out of how time is spread over slides.
+    """
     minutes = numbers.duration_ms / 60_000
     found: dict[str, float] = {}
     if minutes <= 0 or numbers.words < MIN_WORDS:
@@ -341,9 +513,10 @@ def _computed(numbers: LessonMetrics) -> dict[str, float]:
     if len(numbers.segment_wpm) >= 4:
         spread = statistics.pstdev(numbers.segment_wpm) / max(statistics.mean(numbers.segment_wpm), 1)
         found["pace_variation"] = band(spread, *PACE_VARIATION_BAND)
-    if len(numbers.time_per_slide) >= 2:
-        longest = max(slide["ms"] for slide in numbers.time_per_slide)
-        found["slide_balance"] = band(longest / max(numbers.duration_ms, 1), *SLIDE_SHARE_BAND)
+    slides = [slide["ms"] for slide in numbers.time_per_slide if slide["page"] not in own_pages]
+    on_examples = sum(slide["ms"] for slide in numbers.time_per_slide if slide["page"] in own_pages)
+    if len(slides) >= 2:
+        found["slide_balance"] = band(max(slides) / max(numbers.duration_ms - on_examples, 1), *SLIDE_SHARE_BAND)
 
     return {key: FLOOR + (1 - FLOOR) * value for key, value in found.items()}
 
@@ -500,8 +673,9 @@ def _said_after(start: int | None, segments: list[TranscriptSegment]) -> str:
     return text[:ANSWER_CHARS].rsplit(" ", 1)[0] if len(text) > ANSWER_CHARS else text
 
 
-def _item(kind: str, text: str, quote: str | None = None, t_ms: int | None = None) -> dict:
-    return {"id": str(uuid4()), "kind": kind, "text": text, "quote": quote, "t_ms": t_ms}
+def _item(kind: str, text: str, quote: str | None = None, t_ms: int | None = None, page: int | None = None) -> dict:
+    """`page` is set when the quote is a line the teacher wrote; `t_ms` is then when that page was first shown."""
+    return {"id": str(uuid4()), "kind": kind, "text": text, "quote": quote, "t_ms": t_ms, "page": page}
 
 
 def _clock(ms: int) -> str:

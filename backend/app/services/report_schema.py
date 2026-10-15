@@ -18,6 +18,7 @@ class Item(BaseModel):
     text: str
     quote: str | None = None  # the teacher's own words
     t_ms: int | None = None
+    page: int | None = None  # set when the quote is from the teacher's writing: the page of that worked example
 
 
 class Idea(BaseModel):
@@ -89,6 +90,19 @@ class Exchange(BaseModel):
     follow_up: str | None  # the student's one follow-up, when the first answer did not settle it
 
 
+class ExampleOut(BaseModel):
+    """A photo of the teacher's own working. Only a confirmed example that was shown counts in the score."""
+
+    example_id: str
+    page: int
+    shown_at_ms: int | None  # when it was first on stage; None if it never was
+    shown_ms: int  # how long it was on stage in total
+    confirmed: bool  # the teacher said "this is what I wrote", or edited it
+    reading: dict | None  # { question, steps: [{ n, text, unclear }], final_answer, answer_unclear }
+    check: dict | None  # { answer, our_answer, steps: [{ n, status, note }], summary }; None until confirmed
+    items: list[Item]  # at most one worked and one noticed, worked first
+
+
 class ReportOut(BaseModel):
     id: str
     session_id: str
@@ -102,3 +116,4 @@ class ReportOut(BaseModel):
     metrics: Metrics
     moments: list[Moment]
     questions: list[Exchange]
+    examples: list[ExampleOut]  # the teacher's handwritten worked examples, in page order
