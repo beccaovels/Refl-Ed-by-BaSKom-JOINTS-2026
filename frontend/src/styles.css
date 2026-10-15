@@ -605,3 +605,20 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .share-video-holder video{display:block;max-width:100%;max-height:100%;object-fit:contain;background:#000;border-radius:6px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
 .share-stop{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;background:var(--room-control);color:var(--room-text);border:1px solid var(--room-border);cursor:pointer;font-size:13px;font-weight:600}
 .control.control-on{background:var(--blue);border-color:var(--blue)}
+
+/* Setup: several items per lesson */
+.upload-block.dragging{border-color:var(--blue);background:var(--blue-soft)}
+.upload-hint{margin-left:10px;font-size:11px;color:var(--muted)}
+.material-list{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.material-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--blue)}
+.material-row svg{flex:none}
+.material-name{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.material-name strong{font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.material-state{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.material-state.ok{color:var(--green)}
+.material-state.warn{color:var(--warning)}
+.material-state.error{color:var(--coral-ink)}
+.material-row .icon-button{width:30px;height:30px}
+.upload-usage{display:block;margin-top:12px;font-size:11px;color:var(--muted)}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
