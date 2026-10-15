@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 from sqlmodel import Session, select
 
-from app.models import Question, SlideEvent, TeachingSession, TranscriptSegment
+from app.models import Question, SlideEvent, TeachingSession, TranscriptSegment, WorkedExample
 from app.services import rag
 
 PAUSE_MS = 2_000  # a gap this long between two audio pieces is a pause
@@ -40,7 +40,7 @@ class LessonMetrics:
     wait_times_ms: list[int] = field(default_factory=list)  # pause after each teacher question
     response_times_ms: list[int] = field(default_factory=list)  # time to start answering each AI student
     filler_count: int = 0
-    reading_share: float | None = None  # None without material
+    reading_share: float | None = None  # None without slide text to compare with
     time_per_slide: list[dict] = field(default_factory=list)
     segment_wpm: list[int] = field(default_factory=list)  # pace of each audio piece, for pace variation
 
@@ -91,14 +91,21 @@ def compute(db: Session, session_id: str) -> LessonMetrics:
     )
     if session.material_id:
         pages: dict[int, str] = {}
+        # A photo of the teacher's own working is a page too. Walking through it aloud is not reading a slide.
+        own_working = set(db.exec(select(WorkedExample.page).where(WorkedExample.material_id == session.material_id)))
 
-        def slide_at(t_ms: int) -> str:
-            page = next((t.page for t in reversed(turns) if t.t_ms <= t_ms), 1)
+        def page_at(t_ms: int) -> int:
+            return next((t.page for t in reversed(turns) if t.t_ms <= t_ms), 1)
+
+        def slide(page: int) -> str:
             if page not in pages:
                 pages[page] = rag.page_text(db, session.material_id, page)
             return pages[page]
 
-        metrics.reading_share = reading_share([(text, slide_at(start)) for start, _, text in spoken])
+        beside_slides = [(text, slide(page_at(start))) for start, _, text in spoken if page_at(start) not in own_working]
+        # With no slide text at all there is nothing the teacher could have read from.
+        if any(shown for _, shown in beside_slides):
+            metrics.reading_share = reading_share(beside_slides)
     return metrics
 
 
