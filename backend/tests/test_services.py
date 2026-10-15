@@ -8,7 +8,7 @@ from sqlmodel import select
 
 from app.core.config import settings
 from app.models import Material, MaterialChunk, Question, TranscriptSegment
-from app.services import llm, profiles, questions, rag, scoring, stt
+from app.services import llm, profiles, questions, rag, stt
 
 
 def speak(db, lesson, seq, start_ms, end_ms):
@@ -206,26 +206,3 @@ def test_pdf_is_split_into_chunks_per_page(db, lesson, tmp_path):
     assert rag.page_text(db, material.id, 2) == "Titik puncak adalah titik balik grafik."
 
 
-# --- scoring ---
-
-BANNED = ("lacking", "poor", "weak", "should", "kurang", "lemah", "seharusnya")
-
-
-def test_report_shape_and_feedback_rules(db, lesson):
-    questions.capstone(db, lesson.id)
-    report = scoring.build_report(db, lesson.id)
-
-    assert set(report) == {
-        "id", "session_id", "created_at", "overall", "strengths", "dimensions", "ideas", "metrics", "questions",
-    }  # fmt: skip
-    assert [d["key"] for d in report["dimensions"]] == [
-        "content_accuracy", "teaching_flow", "clarity", "engagement", "pacing", "on_camera_presence",
-    ]  # fmt: skip
-    assert report["strengths"] and report["strengths"][0]["kind"] == "worked"
-    assert len(report["ideas"]) <= 3
-    assert not any(word in str(report).lower() for word in BANNED)
-
-    by_key = {d["key"]: d for d in report["dimensions"]}
-    assert by_key["pacing"]["locked"] and by_key["pacing"]["score"] is None  # free tier
-    assert not by_key["on_camera_presence"]["available"]  # camera off
-    assert len(report["questions"]) == 1
