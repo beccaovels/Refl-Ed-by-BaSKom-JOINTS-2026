@@ -11,6 +11,7 @@ import { adaptReport } from './adapt.js';
 // the PDF viewer (and pdf.js with it) is downloaded only when a lesson has a PDF
 const PdfStage = lazy(() => import('./PdfStage.jsx'));
 import ShareStage from './ShareStage.jsx';
+import MaterialUploader from './MaterialUploader.jsx';
 
 const Context = createContext(null);
 const useApp = () => useContext(Context);
@@ -167,28 +168,9 @@ function Setup() {
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const [lesson, setLesson] = useState(() => params.has('subject') ? lessonFromParams(params) : current().lesson);
-    const [material, setMaterial] = useState(null);
-    const [materialId, setMaterialId] = useState(null);
-    const [uploadError, setUploadError] = useState('');
-    async function handleFile(f) {
-        if (!f)
-            return;
-        setMaterial(null);
-        setUploadError('Memeriksa PDF…');
-        try {
-            if (f.size === 0 || f.size > 10 * 1024 * 1024 || (!f.name.toLowerCase().endsWith('.pdf')) || (await f.slice(0, 5).text()) !== '%PDF-')
-                throw new Error('invalid');
-            const uploaded = await api.uploadMaterial(f);
-            setUploadError('');
-            setMaterial(uploaded.filename);
-            setMaterialId(uploaded.id);
-        }
-        catch (err) {
-            setUploadError(err instanceof api.ApiError && err.status !== 400 ? `${err.message} Anda tetap bisa lanjut tanpa materi.` : 'PDF tidak dapat dibaca. Pilih PDF valid maksimal 10 MB atau lanjut tanpa materi.');
-        }
-    }
-    function next() { localStorage.removeItem('gema-draft'); sessionStorage.setItem('gema-current-lesson', JSON.stringify({ lesson, scheduleId: params.get('scheduleId'), material, materialId })); navigate('/simulator/check'); }
-    return _jsxs("div", { className: "page flow-page", children: [_jsxs("div", { className: "flow-steps", children: [_jsxs("span", { className: "active", children: ["01 ", _jsx("b", { children: "Persiapan" })] }), _jsxs("span", { children: ["02 ", _jsx("b", { children: "Perangkat" })] }), _jsxs("span", { children: ["03 ", _jsx("b", { children: "Ruang latihan" })] }), _jsxs("span", { children: ["04 ", _jsx("b", { children: "Refleksi" })] })] }), _jsx(PageHeading, { eyebrow: "MULAI SESI BARU", title: "Apa yang ingin Anda latih?", description: "Tentukan konteks pelajaran agar pertanyaan Siswa GeMa terasa relevan." }), _jsxs("div", { className: "setup-layout", children: [_jsxs("section", { className: "card setup-card", children: [_jsx("span", { className: "section-kicker green", children: "KONTEKS PELAJARAN" }), _jsx("h2", { children: "Topik latihan" }), _jsx("p", { className: "muted", children: "Pilihan kurikulum di bawah adalah sampel untuk demo: dua mata pelajaran dan dua bab per mata pelajaran." }), _jsx(LessonFields, { value: lesson, onChange: setLesson }), _jsxs("div", { className: "upload-block", children: [_jsxs("div", { children: [_jsx(Upload, { size: 21 }), _jsxs("strong", { children: ["Materi pendukung ", _jsx("span", { className: "muted", children: "(opsional)" })] })] }), _jsx("p", { children: "PDF diunggah sekali ke server lokal di laptop Anda, lalu dipakai agar pertanyaan murid sesuai isi materi. Video dan layar tidak pernah diunggah." }), _jsxs("label", { className: "file-button", children: ["Pilih PDF", _jsx("input", { type: "file", accept: "application/pdf,.pdf", onChange: e => handleFile(e.target.files?.[0]) })] }), material && _jsxs("span", { className: "file-success", children: [_jsx(CircleCheck, { size: 16 }), " ", material, " \u00B7 nama materi siap"] }), uploadError && _jsx("span", { className: "error-text", role: "status", children: uploadError })] }), _jsxs("div", { className: "setup-footer", children: [_jsx(Button, { to: "/", variant: "subtle", children: "Kembali" }), _jsx(Button, { onClick: next, disabled: uploadError === 'Memeriksa PDF…', icon: ArrowRight, children: "Periksa perangkat" })] })] }), _jsxs("aside", { className: "setup-aside", children: [_jsx("div", { className: "setup-art", children: _jsx("img", { src: image('simulation/teacher-practicing-camera.png'), alt: "Guru berlatih mengajar di depan kamera" }) }), _jsxs("div", { className: "tip-card", children: [_jsx(ShieldCheck, { size: 23 }), _jsxs("div", { children: [_jsx("strong", { children: "Ruang aman untuk mencoba" }), _jsx("p", { children: "Satu Siswa GeMa akan menampilkan pertanyaan contoh sesuai topik. Anda boleh mulai tanpa kamera." })] })] })] })] })] });
+    const [materials, setMaterials] = useState(() => ({ materialId: current().materialId ?? null, files: current().files ?? [], busy: false }));
+    function next() { localStorage.removeItem('gema-draft'); sessionStorage.setItem('gema-current-lesson', JSON.stringify({ lesson, scheduleId: params.get('scheduleId'), material: materials.files.length ? (materials.files.length === 1 ? materials.files[0].filename : `${materials.files.length} materi`) : null, materialId: materials.files.length ? materials.materialId : null, files: materials.files })); navigate('/simulator/check'); }
+    return _jsxs("div", { className: "page flow-page", children: [_jsxs("div", { className: "flow-steps", children: [_jsxs("span", { className: "active", children: ["01 ", _jsx("b", { children: "Persiapan" })] }), _jsxs("span", { children: ["02 ", _jsx("b", { children: "Perangkat" })] }), _jsxs("span", { children: ["03 ", _jsx("b", { children: "Ruang latihan" })] }), _jsxs("span", { children: ["04 ", _jsx("b", { children: "Refleksi" })] })] }), _jsx(PageHeading, { eyebrow: "MULAI SESI BARU", title: "Apa yang ingin Anda latih?", description: "Tentukan konteks pelajaran agar pertanyaan Siswa GeMa terasa relevan." }), _jsxs("div", { className: "setup-layout", children: [_jsxs("section", { className: "card setup-card", children: [_jsx("span", { className: "section-kicker green", children: "KONTEKS PELAJARAN" }), _jsx("h2", { children: "Topik latihan" }), _jsx("p", { className: "muted", children: "Pilihan kurikulum di bawah adalah sampel untuk demo: dua mata pelajaran dan dua bab per mata pelajaran." }), _jsx(LessonFields, { value: lesson, onChange: setLesson }), _jsx(MaterialUploader, { value: materials, onChange: setMaterials }), _jsxs("div", { className: "setup-footer", children: [_jsx(Button, { to: "/", variant: "subtle", children: "Kembali" }), _jsx(Button, { onClick: next, disabled: materials.busy, icon: ArrowRight, children: "Periksa perangkat" })] })] }), _jsxs("aside", { className: "setup-aside", children: [_jsx("div", { className: "setup-art", children: _jsx("img", { src: image('simulation/teacher-practicing-camera.png'), alt: "Guru berlatih mengajar di depan kamera" }) }), _jsxs("div", { className: "tip-card", children: [_jsx(ShieldCheck, { size: 23 }), _jsxs("div", { children: [_jsx("strong", { children: "Ruang aman untuk mencoba" }), _jsx("p", { children: "Satu Siswa GeMa akan menampilkan pertanyaan contoh sesuai topik. Anda boleh mulai tanpa kamera." })] })] })] })] })] });
 }
 const current = () => {
     try {

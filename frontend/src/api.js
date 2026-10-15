@@ -82,6 +82,17 @@ export async function uploadMaterial(file) {
     form.append('file', file);
     return (await call('/materials', { method: 'POST', form })).data;
 }
+// A lesson's material is a bundle of items (PDFs, JPEG/PNG pictures); see Materials in docs/api-contract.md.
+export const createMaterial = async () => (await call('/materials', { method: 'POST' })).data;
+export async function uploadMaterialFile(materialId, file) {
+    const form = new FormData();
+    form.append('file', file);
+    return (await call(`/materials/${materialId}/files`, { method: 'POST', form })).data;
+}
+export const listMaterialFiles = async (materialId) => (await call(`/materials/${materialId}/files`)).data;
+export const deleteMaterialFile = (materialId, fileId) => call(`/materials/${materialId}/files/${fileId}`, { method: 'DELETE' });
+/** Where an item is fetched from for the stage (pdf.js, or a picture fetched with authHeaders). */
+export const materialFileContentUrl = (fileId) => `${BASE}/files/${fileId}/content`;
 export const createSession = async (body) => (await call('/sessions', { method: 'POST', json: body })).data;
 export const sendSlide = (sessionId, page, t_ms) => call(`/sessions/${sessionId}/slides`, { method: 'POST', json: { page, t_ms } });
 export async function sendAudio(sessionId, seq, start_ms, end_ms, wav) {
