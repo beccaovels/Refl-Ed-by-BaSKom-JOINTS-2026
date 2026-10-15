@@ -1,10 +1,7 @@
 ---
 name: contract-check
 description: Compares frontend API calls and backend endpoints against docs/api-contract.md and lists mismatches. Run before merging.
-tools: 
-- read 
-- glob 
-- grep 
+tools: Read, Glob, Grep
 ---
 
 `docs/api-contract.md` is the agreement between frontend and backend.
