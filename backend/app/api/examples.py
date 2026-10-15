@@ -18,6 +18,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from app.api.materials import usage_allows_photo
 from app.core.auth import current_user, own_material
 from app.core.config import settings
 from app.core.db import get_session
@@ -52,6 +53,8 @@ def upload_example(
         pymupdf.Pixmap(data)  # decodes the picture, so a file with only a valid header is caught here
     except Exception:
         raise HTTPException(status_code=400, detail="Foto tidak bisa dibuka. Coba ambil ulang fotonya.") from None
+
+    usage_allows_photo(db, material.id, len(data))  # a photo counts toward the lesson's limits like any item
 
     # Stored under a generated name: the teacher's filename never becomes part of a path.
     folder = Path(settings.upload_dir) / "examples"

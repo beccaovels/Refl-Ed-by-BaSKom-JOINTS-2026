@@ -91,17 +91,17 @@ def test_a_broken_pdf_is_400(client, login):
 def test_a_pdf_over_20_mb_is_413(client, login, monkeypatch):
     from app.api import materials
 
-    monkeypatch.setattr(materials, "MAX_BYTES", 1_000)
+    monkeypatch.setattr(materials, "MAX_PDF_BYTES", 1_000)
     assert upload(client, login(), data=b"%PDF-" + b"0" * 2_000).status_code == 413
 
 
 def test_failed_indexing_leaves_no_row_and_no_file(client, login, engine, monkeypatch, tmp_path):
-    def broken(db, material_id):
+    def broken(db, material_id, path, first_page):
         db.add(MaterialChunk(material_id=material_id, page=1, order=0, text="half done"))
         db.flush()
         raise RuntimeError("index failed")
 
-    monkeypatch.setattr(rag, "index_material", broken)
+    monkeypatch.setattr(rag, "index_pdf", broken)
     assert upload(client, login()).status_code == 500
     with Session(engine) as db:
         assert db.exec(select(Material)).all() == [] and db.exec(select(MaterialChunk)).all() == []
