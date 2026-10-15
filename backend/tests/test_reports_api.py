@@ -82,7 +82,7 @@ def test_failure_is_a_clear_error_and_finish_can_retry(client, teacher, monkeypa
     monkeypatch.setattr(scoring, "build_report", broken)
     finish(client, teacher)
     r = get_report(client, teacher)
-    assert r.status_code == 500 and r.json()["detail"]
+    assert r.status_code == 500 and r.json()["detail"] == reports_api.AI_BUSY  # tells the teacher a retry will do
 
     monkeypatch.setattr(scoring, "build_report", real)
     finish(client, teacher)
