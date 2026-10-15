@@ -103,6 +103,54 @@ def test_compute_reads_a_whole_session(db, lesson, tmp_path):
     assert 0.5 < public["reading_share"] < 1  # the second piece was read, the first was not
 
 
+def test_a_shared_screen_is_not_a_slide_and_its_speech_is_not_counted_as_reading(db, lesson, tmp_path):
+    path = tmp_path / "bab.pdf"
+    pdf = pymupdf.open()
+    pdf.new_page().insert_textbox((50, 50, 550, 300), SLIDE)
+    pdf.save(path)
+    material = Material(user_id=lesson.user_id, filename="bab.pdf", path=str(path), page_count=1)
+    db.add(material)
+    db.commit()
+    rag.index_material(db, material.id)
+    lesson.material_id = material.id
+    db.add(lesson)
+    # PDF for 60 s, a shared screen for 120 s (page 0), then the PDF again
+    for t_ms, page in ((0, 1), (60_000, 0), (180_000, 1)):
+        db.add(SlideEvent(session_id=lesson.id, page=page, t_ms=t_ms))
+    db.commit()
+    say(db, lesson, 0, 0, 20_000, SLIDE)  # read aloud from the slide
+    say(db, lesson, 1, 70_000, 90_000, "sekarang lihat contoh yang saya siapkan sendiri tentang pelemparan koin dan dadu di layar")
+    say(db, lesson, 2, 200_000, 220_000, "kita kembali ke bahan tadi dan saya jelaskan dengan kata-kata saya sendiri saja")
+
+    result = metrics.compute(db, lesson.id)
+
+    assert result.time_per_slide == [{"page": 1, "ms": 100_000}]  # page 0 is not listed as a slide
+    assert result.shared_ms == 120_000
+    assert result.public()["time_per_slide"] == [{"page": 1, "ms": 100_000}]
+    # only the two pieces said beside the slide count: one read, one in the teacher's own words
+    assert 0.4 < result.reading_share < 0.8
+
+
+def test_a_lesson_spent_sharing_a_screen_has_no_reading_share(db, lesson, tmp_path):
+    path = tmp_path / "bab.pdf"
+    pdf = pymupdf.open()
+    pdf.new_page().insert_textbox((50, 50, 550, 300), SLIDE)
+    pdf.save(path)
+    material = Material(user_id=lesson.user_id, filename="bab.pdf", path=str(path), page_count=1)
+    db.add(material)
+    db.commit()
+    rag.index_material(db, material.id)
+    lesson.material_id = material.id
+    db.add(lesson)
+    db.add(SlideEvent(session_id=lesson.id, page=0, t_ms=0))
+    db.commit()
+    say(db, lesson, 0, 5_000, 25_000, SLIDE)  # the same words, but no slide is on show to read them from
+
+    result = metrics.compute(db, lesson.id)
+
+    assert result.reading_share is None and result.time_per_slide == [] and result.shared_ms == 25_000
+
+
 def test_no_material_means_no_reading_share(db, lesson):
     say(db, lesson, 0, 0, 10_000, "Hari ini kita belajar fungsi kuadrat.")
     public = metrics.compute(db, lesson.id).public()

@@ -23,7 +23,7 @@ from sqlmodel import Session, select
 
 from app.models import Question, SignalBin, SlideEvent, TeachingSession, TranscriptSegment, User
 from app.services import delivery, evidence, examples, llm, metrics, profiles, rag
-from app.services.metrics import LessonMetrics
+from app.services.metrics import SHARED_SCREEN, LessonMetrics
 from app.services.questions import ASKING
 from app.services.report_schema import ReportOut
 from app.services.rubric import CARDS, FREE_CARDS, LABELS, Card, band, clarity_parameters, growth_label, worked_practice
@@ -272,7 +272,7 @@ def _material(db: Session, session: TeachingSession, own_pages: set[int]) -> str
     if not session.material_id:
         return ""
     turns = db.exec(select(SlideEvent).where(SlideEvent.session_id == session.id).order_by(SlideEvent.t_ms)).all()
-    pages = [page for page in dict.fromkeys(t.page for t in turns) or [1] if page not in own_pages]
+    pages = [page for page in dict.fromkeys(t.page for t in turns) or [1] if page not in own_pages and page != SHARED_SCREEN]
     text = "\n".join(f"[Halaman {page}] {rag.page_text(db, session.material_id, page)}" for page in pages)
     return text[:MATERIAL_CHARS]
 
@@ -514,9 +514,10 @@ def _computed(numbers: LessonMetrics, own_pages: set[int] = frozenset()) -> dict
         spread = statistics.pstdev(numbers.segment_wpm) / max(statistics.mean(numbers.segment_wpm), 1)
         found["pace_variation"] = band(spread, *PACE_VARIATION_BAND)
     slides = [slide["ms"] for slide in numbers.time_per_slide if slide["page"] not in own_pages]
-    on_examples = sum(slide["ms"] for slide in numbers.time_per_slide if slide["page"] in own_pages)
+    # time on the teacher's own working, or on a shared screen, is not time on any slide
+    off_slides = numbers.shared_ms + sum(slide["ms"] for slide in numbers.time_per_slide if slide["page"] in own_pages)
     if len(slides) >= 2:
-        found["slide_balance"] = band(max(slides) / max(numbers.duration_ms - on_examples, 1), *SLIDE_SHARE_BAND)
+        found["slide_balance"] = band(max(slides) / max(numbers.duration_ms - off_slides, 1), *SLIDE_SHARE_BAND)
 
     return {key: FLOOR + (1 - FLOOR) * value for key, value in found.items()}
 
