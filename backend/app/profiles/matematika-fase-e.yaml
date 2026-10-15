@@ -23,6 +23,18 @@ clarity_anchors:
   - Mengaitkan materi dengan konsep lain atau dengan kehidupan sehari-hari (koneksi)
   - Menjelaskan istilah baru saat pertama kali dipakai (komunikasi)
 
+# The two Clarity parameters that belong to this subject (30 and 20 points). The other
+# two, "new terms explained" and "step by step", are shared by every subject.
+# From the process elements "penalaran dan pembuktian" and "representasi", same source, p. 11.
+clarity_parameters:
+  - title: Menjelaskan alasan di balik rumus
+    look_for: Guru menjelaskan mengapa suatu rumus atau langkah berlaku, tidak hanya menyebutkan rumusnya.
+  - title: Lebih dari satu representasi
+    look_for: Gagasan yang sama disajikan dengan lebih dari satu cara, misalnya kata-kata, simbol, tabel, grafik, atau gambar.
+
+# What "accurate" means in this subject, added to the scoring prompt.
+accuracy_focus: setiap langkah perhitungan dan hasil akhirnya, serta rumus yang disebutkan.
+
 # Contexts the ministry's guide recommends (pp. 3, 268). Used to seed "an idea you could try".
 context_seeds:
   - kearifan lokal dan kehidupan sehari-hari di sekitar murid
