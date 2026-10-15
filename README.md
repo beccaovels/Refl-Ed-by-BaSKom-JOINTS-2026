@@ -1,7 +1,7 @@
 # [BaSKom @ JOINTS] - Refl-Ed
 JOINTS Hackathon 2026 (UGM), team BaSKom. 
 
-Indonesian teachers rehearse a lesson in a room that looks like a video call. They present their own material, an AI student asks questions live, and afterwards they get a report built from evidence in their own words. It runs locally; nothing is deployed.
+Indonesian teachers rehearse a lesson in a room that looks like a video call. They present their own material, an AI student asks questions live, and afterwards they get a report built from evidence in their own words. 
 
 - [Product overview](#product-overview)
 - [Personas: Bu Rina and Bu Lina](#personas-bu-rina-and-bu-lina)
@@ -22,8 +22,6 @@ Indonesian teachers rehearse a lesson in a room that looks like a video call. Th
 
 Teachers in well-resourced schools get coaching and classroom observation. Most teachers across Indonesia do not, especially outside big cities. Many have low pay and a heavy administrative load, and teach from one modest laptop. Without anyone to watch them practise, the step from reading slides aloud to teaching an engaging lesson is hard to take alone.
 
-The framing is **unequal access to coaching**, not unequal teachers.
-
 ### What the product does
 
 It turns micro-teaching into something a teacher can do alone, at any time:
@@ -33,29 +31,12 @@ It turns micro-teaching into something a teacher can do alone, at any time:
 3. Afterwards they get a report:
    - **What worked.**
    - **What we noticed.**
-   - **Up to three ideas you could try.** Each idea comes with ready-to-use text in Bahasa Indonesia.
+   - **Up to three ideas you could try.** 
 
    Every qualitative point quotes the teacher's own words with a timestamp.
 
 **Stance:** a rehearsal partner and a mirror, not a judge. Feedback is input the teacher may ignore.
 
-### Principles that are never broken
-
-These hold across the whole product.
-
-- **No eye-contact scoring and no emotion labels.** A calm, serious teacher can reach the top score.
-- **Equipment is never scored.** That covers lighting, camera quality and equipment.
-- **The camera is optional.** A full report works from audio alone.
-- **Video never leaves the browser.** Only small JSON signal bins and audio pieces are uploaded.
-- **Feedback is kind and quoted.**
-  - It follows the order: what worked, what we noticed, an idea to try.
-  - At most three ideas.
-  - No "kurang", "lemah" or "seharusnya" (nor "lacking", "poor", "weak", "should").
-  - No comparison with other teachers.
-  - Quotes not found in the transcript are dropped.
-- **Ideas need no extra preparation, materials or devices.**
-- **The teacher owns the data.** No individual scores go to principals.
-- **The rubric is "aligned with" the Kemendikdasmen guides.** It is never called "the official rubric".
 
 ## Personas: Bu Rina and Bu Lina
 
@@ -124,12 +105,7 @@ Each persona's history is stored separately in the browser (`localStorage` key `
 | Profile file | `backend/app/profiles/matematika-fase-e.yaml` |
 | Source | The *Buku Panduan Guru Matematika Kelas X* |
 | What it provides | Clarity parameters, documented misconceptions with page numbers, the student persona (age 15–16), question depth levels and context seeds |
-
-Two things to know:
-- **The profile is marked `tested: false`.** It has no strong and weak sample lessons yet. `GET /api/profiles` therefore hides it unless `SHOW_UNTESTED_PROFILES=true` is set in `backend/.env`. Set it to `true` to run a lesson (see [Troubleshooting](#troubleshooting)).
-- **Mathematics lessons use this profile.** The Room picks the profile by subject, so a Matematika lesson is taught with the Kelas X Peluang profile and its documented misconceptions.
-
-Other subjects and grades are future direction only (see [Long-term vision](#long-term-vision)).
+Other subjects and grades are future direction (see [Long-term vision](#long-term-vision)).
 
 ## Features and user flow
 
