@@ -32,7 +32,7 @@ def play(db: Session, lines: list[str], profile_id: str = "matematika-fase-e", t
     db.add(user)
     db.commit()
     lesson = TeachingSession(
-        user_id=user.id, profile_id=profile_id, class_name="X-1", subject="Matematika", chapter="Fungsi kuadrat"
+        user_id=user.id, profile_id=profile_id, class_name="X-1", subject="Matematika", chapter="Bab 7 Peluang"
     )
     db.add(lesson)
     db.commit()
@@ -50,7 +50,7 @@ def play(db: Session, lines: list[str], profile_id: str = "matematika-fase-e", t
             session_id=lesson.id,
             kind="regular",
             persona=json.dumps({"name": "Dimas", "style": "murid"}),
-            text="Kenapa nilai a tidak boleh nol?",
+            text="Kenapa peluang jumlah tujuh lebih besar daripada jumlah dua?",
             asked_at_ms=asked_at,
             answered_at_ms=asked_at + 1_000,
         )
