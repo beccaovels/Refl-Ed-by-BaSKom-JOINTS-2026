@@ -46,10 +46,24 @@ Read: contents, Capaian Pembelajaran (pp. 6–7), Bab 7 Peluang (pp. 243–286).
 | 261 | "Atau" in probability differs from everyday "or" | AI student misconception question |
 | 262 | Experimental probability is assumed to equal theoretical probability | AI student misconception question |
 | 265 | Relative frequency and expected frequency are confused | AI student misconception question |
+| 257 | A solution shown as a sample-space table, then an *Alternatif Penyelesaian* by reasoning ("peserta didik dapat juga bernalar…"), closing with "Oleh karena …, maka …" | `worked_example_practice`: where the numbers come from is visible; the answer is written as a conclusion; the reason is given. Also the rule that a different valid method is never marked down |
 
 The `ask` line of each misconception in the profile is our wording of the book's misconception in a student's voice; the misconception itself is the book's.
 
-Also in `docs/references/`, not yet read beyond the cover: the student book for the same grade, and the teacher's and student books for Matematika Tingkat Lanjut XI (2024), Biologi XI (2022) and Sejarah XI (teacher's book in the older Sekolah Penggerak edition, student book revised 2024).
+## 4. Buku Siswa Matematika SMA/MA/SMK/MAK Kelas X, Edisi Revisi (Kemendikbudristek, 2023)
+
+Read: Bab 7 Peluang (pp. 240–271), searched for how worked examples are set out.
+
+| Page | In the book | Used for |
+|---|---|---|
+| 244 | The chapter's one "Contoh": each probability shown on a 6 × 6 sample-space table with the event shaded, and written before and after simplifying (2/36 = 1/18) | `worked_example_practice`: where the numbers come from is visible; one step per line, including the form before and after simplifying |
+| 240–271 | No fixed layout for a worked example. "Diketahui / Ditanya / Jawab" does not appear in the chapter | We require no layout; the practice list is what the books do themselves |
+
+## 5. Pólya, *How to Solve It* (Princeton University Press, 1945)
+
+Four phases of solving a problem: understanding the problem, devising a plan, carrying out the plan, looking back. Not an Indonesian curriculum document and not a scoring instrument; used only as a second, general anchor for two items of `worked_example_practice` ("one step per line, each following from the last" for carrying out the plan; "the final answer is written as a conclusion that answers the question" for looking back). Cited from general knowledge of the book; page numbers not checked.
+
+Also in `docs/references/`, not yet read: the teacher's and student books for Matematika Tingkat Lanjut XI (2024), Biologi XI (2022) and Sejarah XI (teacher's book in the older Sekolah Penggerak edition, student book revised 2024).
 
 ## Still needed
 

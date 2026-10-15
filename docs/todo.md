@@ -1,6 +1,6 @@
 # AI pipeline: open work, weak spots and what is not proven yet
 
-Kept by the AI + PM lead. Last updated Mon 12 Oct. Three parts: what is left to build, what a judge could challenge, and where each scoring limit comes from. Nothing here is hidden from the pitch: an unproven number is said to be unproven.
+Kept by the AI + PM lead. Last updated Tue 13 Oct. Three parts: what is left to build, what a judge could challenge, and where each scoring limit comes from. Nothing here is hidden from the pitch: an unproven number is said to be unproven.
 
 ## 1. Status
 
@@ -17,6 +17,7 @@ Kept by the AI + PM lead. Last updated Mon 12 Oct. Three parts: what is left to 
 | Material retrieval | Done with word overlap; embeddings not built |
 | Voice and camera signal code (browser) | Written, typechecked, unit-tested. **Not yet run with a real camera or microphone** |
 | Tone & expression card, scored from signal bins | Done; thresholds provisional |
+| Handwritten worked examples: read a photo, teacher confirms, check, score, feedback | Done on the backend. **Tried only on printed stand-ins, never on real handwriting.** Setup, room and report screens to build |
 | Evaluation numbers in `docs/evaluation.md` | To do, needs clips |
 | Profiles other than Matematika X | To do, data files only |
 
@@ -56,9 +57,19 @@ Matematika X demo chapter: **Bab 7, Peluang**.
 - `ml/vision-harness/`: typecheck, 23 unit tests, and a page to try it on a webcam, the microphone or a recorded clip.
 - Left, in order: (1) open the harness page and confirm the camera path works at all; (2) record and label the paired clips; (3) tune the thresholds; (4) the room calls `startSignals()` and forwards the bins.
 
+### Handwritten worked examples, "Papan tulis" (built 13 Oct, not tried on handwriting)
+- A teacher photographs a question and their own working, in Setup or during the lesson. The photo is a page of the material after the PDF's last page and is shown on the main stage.
+- Order: the photo is read (copied, never corrected); the teacher confirms or edits what was read; only then is the working checked, on exactly the confirmed text. Reading and checking are two separate calls: the reader sees the photo, the checker never does.
+- Only an example that is confirmed and was shown counts. It adds two parameters: "Contoh soal dikerjakan dengan tepat" (Accuracy, 20) and "Langkah pengerjaan tertata dan dijelaskan" (Clarity, 20). Older parameters keep their ratio, so a lesson without an example scores as before.
+- The report lists each example with its reading, check and at most one "what worked" and one "what we noticed". A written line may be quoted as evidence only from a confirmed example.
+- What "set out clearly" means is a list in the subject profile, taken from the student book p. 244 and the teacher's book p. 257, plus Pólya's phases.
+- Live run on two printed stand-ins (13 Oct): the reader copied a planted slip as written; the checker flagged the right step with a plain note; the report gave one "worked" and one "noticed" beside the example and wrote out the missing line as an idea. Reading took about 8 s with `gemini-2.5-flash` named as the reader, about 30 s through the busy default model.
+- Left: (1) photos of real handwriting; (2) compare the three free Gemini models as reader and set `LLM_VISION_MODEL`; (3) the endpoints and the three screens; (4) numbers in `docs/evaluation.md`: lines read exactly, planted slips caught, false alarms on correct work.
+
 ### Needed from people
 | What | Who | For |
 |---|---|---|
+| 5–8 photos of handwritten Peluang working (neat and messy, pen and pencil, one in poor light), two with a deliberate slip | Lead | Choosing the reader model; the reading and checking numbers. See 3.26 |
 | 3 Indonesian audio clips with the exact text spoken, different accents | Team | Word error rate |
 | Paired video clips: the same 30–40 s passage delivered flat and engaging, by each of us (bright/dim, glasses, hijab), with each 10 s labelled | Team | Tuning and agreement numbers for voice and face |
 | The 2025 *Panduan Mata Pelajaran Matematika* back in `docs/references/` | Lead | `docs/rubric-sources.md` cites its pages; the file is no longer in the folder |
@@ -143,6 +154,24 @@ Autocorrelation on 43 ms of sound, twenty times a second. It handles a clean voi
 
 ### 3.25 The harness packages have known vulnerabilities
 `npm install` reports 6 (2 critical) in development tools (the Vite 5 and Vitest 2 lines). It is a local developer page, never deployed. The frontend proper should start on current versions.
+
+### 3.26 Reading handwriting is not measured
+The photo reader has only seen printed stand-ins. We do not know how often it misreads a digit in real handwriting. What protects the teacher meanwhile: nothing is checked until they confirm or edit the reading, and unsure parts are highlighted. If real photos are misread often even with the best model, the two scoring parameters are switched off and the check is shown as information only.
+
+### 3.27 The check uses the model's own maths
+Everywhere else, accuracy is judged against the teacher's material, not the model's knowledge. Checking a worked example means the model works the question out itself, and it can be wrong. So the check says "layak dicek ulang" with our own working beside it, never "salah"; the score cannot go below the middle level unless the check names a step; and each note carries the "Ini tidak akurat" button. A flagged check does not yet change the score (roadmap).
+
+### 3.28 The practice list for worked examples is short and from one chapter
+Four items, from two pages of the grade X books plus Pólya. The books give no fixed layout for a worked example, so we require none. Other subjects fall back to a general list in `rubric.py` until their profile names its own. Pólya is cited from general knowledge of the book; page numbers not checked.
+
+### 3.29 A mid-lesson photo reaches the AI students late
+Reading takes 10–30 s on the free tier, and the teacher has to tap "Ya, ini tulisan saya" before the example is checked. A teacher who never taps gets no check and no score for that example. Confirming it after the lesson shows the check but does not change a report already made (roadmap).
+
+### 3.30 Photos: what is accepted and what leaves the laptop
+JPG and PNG only; WebP and iPhone HEIC cannot be opened. A sideways phone photo is turned upright. The photo is saved in `backend/data/` like the PDF; a copy scaled to 1600 px, without the file's location and time data, is sent to Gemini to be read. This is a file the teacher chooses, not a camera frame: video still never leaves the browser. `CLAUDE.md` says "only small JSON signal bins and audio chunks are uploaded"; that line needs the photo added.
+
+### 3.31 "Own words vs reading" has gaps (accepted limitation)
+It leaves out speech while a photo is on stage, and it is unavailable when no slide has text (image-only slides, or photos with no PDF). Before 13 Oct a text-less PDF scored full marks here; now the parameter is simply not counted.
 
 ## 4. Where the scoring limits come from
 
