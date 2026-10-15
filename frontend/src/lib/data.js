@@ -1,11 +1,10 @@
 import { APP_NAME } from './config.js';
 import { isReturning } from './personas.js';
-export const lessons = [
-    { kelas: 'Kelas VII', subject: 'Matematika', chapter: 'Persamaan Linear', subchapter: 'Persamaan satu variabel' },
-    { kelas: 'Kelas VII', subject: 'Matematika', chapter: 'Geometri', subchapter: 'Luas segitiga' },
-    { kelas: 'Kelas VIII', subject: 'Biologi', chapter: 'Ekosistem', subchapter: 'Rantai makanan' },
-    { kelas: 'Kelas VIII', subject: 'Biologi', chapter: 'Sistem Pernapasan', subchapter: 'Proses pertukaran gas' },
-];
+// The lessons a teacher can pick come from the backend's subject profiles (hooks/useLessons.js). Until they arrive a
+// lesson is blank; LessonFields fills it with the first one offered.
+export const blankLesson = { kelas: '', subject: '', chapter: '', subchapter: '' };
+// Only for the sample history of a returning demo teacher, in the one chapter the profiles cover.
+const demoLesson = (subchapter) => ({ kelas: 'Kelas X', subject: 'Matematika', chapter: 'Peluang', subchapter });
 const dateOffset = (days, hour = 9) => {
     const d = new Date();
     d.setDate(d.getDate() + days);
@@ -66,10 +65,13 @@ export function initialStore(returning = true) {
     if (!returning) return { mode: 'empty', reports: [], schedules: [] };
     return {
         mode: 'seeded',
-        reports: [sample('contoh-1', lessons[0], -2, 82), sample('contoh-2', lessons[2], -8, 76)],
+        reports: [
+            sample('contoh-1', demoLesson('Kejadian majemuk'), -2, 82),
+            sample('contoh-2', demoLesson('Kejadian saling lepas'), -8, 76),
+        ],
         schedules: [
-            { id: 'jadwal-1', ...lessons[1], at: dateOffset(1, 10), status: 'scheduled' },
-            { id: 'jadwal-2', ...lessons[2], at: dateOffset(3, 15), status: 'scheduled' },
+            { id: 'jadwal-1', ...demoLesson('Kejadian saling bebas'), at: dateOffset(1, 10), status: 'scheduled' },
+            { id: 'jadwal-2', ...demoLesson('Frekuensi harapan'), at: dateOffset(3, 15), status: 'scheduled' },
         ],
     };
 }
@@ -133,13 +135,9 @@ export function isStore(value) {
         )
     );
 }
+// The lesson a link asks for. LessonFields moves it to an offered one if the profiles do not have it.
 export function lessonFromParams(params) {
-    const lesson =
-        lessons.find((l) => l.subject === params.get('subject') && l.chapter === params.get('chapter')) ?? lessons[0];
-    return {
-        ...lesson,
-        kelas: ['Kelas VII', 'Kelas VIII'].includes(params.get('kelas') ?? '') ? params.get('kelas') : lesson.kelas,
-    };
+    return Object.fromEntries(Object.keys(blankLesson).map((k) => [k, params.get(k) ?? '']));
 }
 export function reportTrends(reports) {
     const groups = new Map();

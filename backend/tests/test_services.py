@@ -132,7 +132,7 @@ def test_missing_key_is_a_clear_error(monkeypatch):
 
 def test_untested_profiles_are_hidden():
     everything = profiles.list_tested(include_untested=True)
-    assert {"id", "subject", "grade", "phase", "label"} == set(everything[0])
+    assert {"id", "subject", "grade", "phase", "label", "chapters"} == set(everything[0])
     assert all(profiles.get(p["id"])["tested"] for p in profiles.list_tested())
 
 

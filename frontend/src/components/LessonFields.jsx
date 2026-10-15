@@ -1,88 +1,78 @@
 import { useEffect } from 'react';
-import { lessons as allLessons } from '../lib/data.js';
-import { useSupportedSubjects } from '../hooks/useSupportedSubjects.js';
+import { AlertCircle } from 'lucide-react';
+import { sameLesson, useLessons } from '../hooks/useLessons.js';
 
+const unique = (xs) => [...new Set(xs)];
+
+// The four pickers, filled only from the backend's subject profiles. Each one narrows the next.
 export function LessonFields({ value, onChange }) {
-    // Only subjects the backend has a profile for; with none known (still loading, or none at all) nothing is hidden.
-    const supported = useSupportedSubjects();
-    const offered = supported?.size ? allLessons.filter((l) => supported.has(l.subject)) : allLessons;
-    const lessons = offered.length ? offered : allLessons;
-    const subjects = [...new Set(lessons.map((l) => l.subject))];
-    const chapters = lessons.filter((l) => l.subject === value.subject);
-    // A lesson that arrived from a link or an earlier visit in a subject that is not offered moves to the first one that is.
+    const lessons = useLessons();
+    // A lesson from a link, an old schedule or an earlier visit that the profiles do not offer moves to the closest
+    // one that they do: same subject and chapter if possible, else the first lesson.
     useEffect(() => {
-        if (supported?.size && !subjects.includes(value.subject)) onChange({ ...lessons[0], kelas: value.kelas });
-    }, [supported, value.subject]);
+        if (!lessons?.length || lessons.some((l) => sameLesson(l, value))) return;
+        const close =
+            lessons.find((l) => l.subject === value.subject && l.chapter === value.chapter) ??
+            lessons.find((l) => l.subject === value.subject) ??
+            lessons[0];
+        onChange(close);
+    }, [lessons, value.kelas, value.subject, value.chapter, value.subchapter]);
+    if (lessons && !lessons.length)
+        return (
+            <div className="notice warning">
+                <AlertCircle size={18} />
+                <span>
+                    Belum ada materi yang bisa dipilih. Server belum punya profil mata pelajaran yang siap; untuk
+                    pengembangan lokal, isi SHOW_UNTESTED_PROFILES=true di backend/.env.
+                </span>
+            </div>
+        );
+    const all = lessons ?? [];
+    const inKelas = all.filter((l) => l.kelas === value.kelas);
+    const inSubject = inKelas.filter((l) => l.subject === value.subject);
+    const inChapter = inSubject.filter((l) => l.chapter === value.chapter);
+    const pick = (list) => list[0] && onChange(list[0]);
     return (
         <div className="field-grid">
-            <label>
-                Kelas
-                <select
-                    value={value.kelas}
-                    onChange={(e) =>
-                        onChange({
-                            ...value,
-                            kelas: e.target.value,
-                        })
-                    }
-                >
-                    {['Kelas VII', 'Kelas VIII'].map((x) => (
-                        <option key={x}>{x}</option>
-                    ))}
-                </select>
-            </label>
-            <label>
-                Mata pelajaran
-                <select
-                    value={value.subject}
-                    onChange={(e) => {
-                        const next = lessons.find((l) => l.subject === e.target.value);
-                        onChange({
-                            ...next,
-                            kelas: value.kelas,
-                        });
-                    }}
-                >
-                    {subjects.map((x) => (
-                        <option key={x}>{x}</option>
-                    ))}
-                </select>
-            </label>
-            <label>
-                Bab
-                <select
-                    value={value.chapter}
-                    onChange={(e) => {
-                        const next = chapters.find((l) => l.chapter === e.target.value);
-                        onChange({
-                            ...next,
-                            kelas: value.kelas,
-                        });
-                    }}
-                >
-                    {chapters.map((x) => (
-                        <option key={x.chapter}>{x.chapter}</option>
-                    ))}
-                </select>
-            </label>
-            <label>
-                Sub-bab
-                <select
-                    value={value.subchapter}
-                    onChange={(e) =>
-                        onChange({
-                            ...value,
-                            subchapter: e.target.value,
-                        })
-                    }
-                >
-                    {chapters
-                        .filter((l) => l.chapter === value.chapter)
-                        .map((x) => (
-                            <option key={x.subchapter}>{x.subchapter}</option>
-                        ))}
-                </select>
-            </label>
+            <Picker
+                label="Kelas"
+                value={value.kelas}
+                options={unique(all.map((l) => l.kelas))}
+                onChange={(kelas) => pick(all.filter((l) => l.kelas === kelas))}
+            />
+            <Picker
+                label="Mata pelajaran"
+                value={value.subject}
+                options={unique(inKelas.map((l) => l.subject))}
+                onChange={(subject) => pick(inKelas.filter((l) => l.subject === subject))}
+            />
+            <Picker
+                label="Bab"
+                value={value.chapter}
+                options={unique(inSubject.map((l) => l.chapter))}
+                onChange={(chapter) => pick(inSubject.filter((l) => l.chapter === chapter))}
+            />
+            <Picker
+                label="Sub-bab"
+                value={value.subchapter}
+                options={inChapter.map((l) => l.subchapter)}
+                onChange={(subchapter) => onChange({ ...value, subchapter })}
+            />
         </div>
+    );
+}
+
+function Picker({ label, value, options, onChange }) {
+    return (
+        <label>
+            {label}
+            <select value={value} disabled={!options.length} onChange={(e) => onChange(e.target.value)}>
+                {options.length ? (
+                    options.map((x) => <option key={x}>{x}</option>)
+                ) : (
+                    <option value={value}>Memuat…</option>
+                )}
+            </select>
+        </label>
     );
 }

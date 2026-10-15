@@ -25,7 +25,7 @@ def list_tested(include_untested: bool = False) -> list[dict]:
     passed its strong-versus-weak check.
     """
     return [
-        {key: profile[key] for key in ("id", "subject", "grade", "phase", "label")}
+        {key: profile[key] for key in ("id", "subject", "grade", "phase", "label", "chapters")}
         for profile in _all().values()
         if include_untested or profile.get("tested")
     ]

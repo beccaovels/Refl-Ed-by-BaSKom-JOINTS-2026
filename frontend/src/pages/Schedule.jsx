@@ -9,7 +9,8 @@ import { LessonFields } from '../components/LessonFields.jsx';
 import { useDialogFocus } from '../hooks/useDialogFocus.js';
 import { scheduleLabel, useSchedules } from '../hooks/useSchedules.js';
 import { lessonUrl } from '../lib/lesson.js';
-import { formatDate, formatTime, lessons, lessonFromParams } from '../lib/data.js';
+import { sameLesson, useLessons } from '../hooks/useLessons.js';
+import { blankLesson, formatDate, formatTime, lessonFromParams } from '../lib/data.js';
 import { APP_NAME } from '../lib/config.js';
 
 export function Schedule() {
@@ -22,6 +23,7 @@ export function Schedule() {
     const [editing, setEditing] = useState(null);
     const [showForm, setShowForm] = useState(params.has('subject'));
     const [lesson, setLesson] = useState(() => lessonFromParams(params));
+    const lessons = useLessons();
     const [date, setDate] = useState(() => {
         const d = new Date(Date.now() + 86400000);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -43,7 +45,7 @@ export function Schedule() {
                       chapter: item.chapter,
                       subchapter: item.subchapter,
                   }
-                : lessons[0],
+                : blankLesson,
         );
         setDate(item ? dateKey(new Date(item.at)) : dateKey(selected));
         setTime(
@@ -56,6 +58,10 @@ export function Schedule() {
     }
     function save(e) {
         e.preventDefault();
+        if (!lessons?.some((l) => sameLesson(l, lesson))) {
+            setError('Pilih materi latihan terlebih dahulu.');
+            return;
+        }
         const at = new Date(`${date}T${time}`);
         if (!date || Number.isNaN(at.getTime())) {
             setError('Pilih tanggal dan jam yang valid.');

@@ -6,6 +6,7 @@ import { Button } from '../components/Button.jsx';
 import { PageHeading } from '../components/PageHeading.jsx';
 import { LessonFields } from '../components/LessonFields.jsx';
 import { current } from '../lib/lesson.js';
+import { sameLesson, useLessons } from '../hooks/useLessons.js';
 import { image, lessonFromParams } from '../lib/data.js';
 import { APP_NAME } from '../lib/config.js';
 
@@ -14,6 +15,7 @@ export function Setup() {
     const navigate = useNavigate();
     const returning = useLocation().state?.resume === true; // came back from "Periksa perangkat" for this same lesson
     const [lesson, setLesson] = useState(() => (params.has('subject') ? lessonFromParams(params) : current().lesson));
+    const offered = useLessons()?.some((l) => sameLesson(l, lesson)); // only a lesson a profile covers can start
     const [materials, setMaterials] = useState(() => ({
         materialId: returning ? (current().materialId ?? null) : null,
         files: returning ? (current().files ?? []) : [],
@@ -64,17 +66,14 @@ export function Setup() {
             <div className="setup-layout">
                 <section className="card setup-card">
                     <h2>Topik latihan</h2>
-                    <p className="muted">
-                        Pilihan kurikulum di bawah adalah sampel untuk demo: dua mata pelajaran dan dua bab per mata
-                        pelajaran.
-                    </p>
+                    <p className="muted">Pilihan di bawah adalah bab yang sudah punya profil mata pelajaran.</p>
                     <LessonFields value={lesson} onChange={setLesson} />
                     <MaterialUploader value={materials} onChange={setMaterials} />
                     <div className="setup-footer">
                         <Button to="/" variant="subtle">
                             Kembali
                         </Button>
-                        <Button onClick={next} disabled={materials.busy} icon={ArrowRight}>
+                        <Button onClick={next} disabled={materials.busy || !offered} icon={ArrowRight}>
                             Periksa perangkat
                         </Button>
                     </div>

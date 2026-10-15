@@ -13,7 +13,8 @@ A missing or unknown `X-User-Id` gives 401. A session or report that belongs to 
 
 ## Profiles
 
-`GET /profiles` → `[{ id, subject, grade, phase, label }]`. Only tested profiles are returned (`SHOW_UNTESTED_PROFILES=true` in `backend/.env` lists all of them, for local development).
+`GET /profiles` → `[{ id, subject, grade, phase, label, chapters: [{ name, subchapters: [string] }] }]`. Only tested profiles are returned (`SHOW_UNTESTED_PROFILES=true` in `backend/.env` lists all of them, for local development).
+- `chapters` comes from the profile's YAML file. Setup offers exactly these lessons (subject, `Kelas` from `grade`, chapter, sub-chapter) and nothing else.
 
 ## Materials
 

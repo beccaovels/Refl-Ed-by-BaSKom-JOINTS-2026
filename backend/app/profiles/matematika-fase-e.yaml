@@ -14,6 +14,17 @@ tested: false
 
 demo_chapter: "Bab 7 Peluang"
 
+# The lessons Setup offers for this profile, and nothing else: the misconceptions, examples
+# and phase expectation below are all written for this chapter. Sub-chapters follow the
+# topics of the Capaian Pembelajaran for the chapter (teacher's book pp. 6-7).
+chapters:
+  - name: Peluang
+    subchapters:
+      - Kejadian majemuk
+      - Kejadian saling lepas
+      - Kejadian saling bebas
+      - Frekuensi harapan
+
 # What "clear" means in this subject. From the five process elements,
 # Panduan Mata Pelajaran Matematika 2025, p. 11.
 clarity_anchors:

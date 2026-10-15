@@ -60,7 +60,12 @@ def test_untested_profiles_are_hidden_unless_switched_on(client, monkeypatch):
     assert client.get("/api/profiles").json() == []  # no profile is marked tested yet
     monkeypatch.setattr(settings, "show_untested_profiles", True)
     listed = client.get("/api/profiles").json()
-    assert {"id": PROFILE, "subject": "Matematika", "grade": 10, "phase": "E", "label": "Matematika Kelas X"} in listed
+    maths = next(p for p in listed if p["id"] == PROFILE)
+    assert {k: maths[k] for k in ("subject", "grade", "phase", "label")} == {
+        "subject": "Matematika", "grade": 10, "phase": "E", "label": "Matematika Kelas X"
+    }  # fmt: skip
+    assert [c["name"] for c in maths["chapters"]] == ["Peluang"]
+    assert all(c["subchapters"] for c in maths["chapters"])
 
 
 # --- materials ---

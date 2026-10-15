@@ -7,7 +7,8 @@ import { PageHeading } from '../components/PageHeading.jsx';
 import { useSchedules } from '../hooks/useSchedules.js';
 import { lessonUrl, readDraft } from '../lib/lesson.js';
 import { describeReport } from '../lib/reportText.js';
-import { formatDate, formatScore, formatTime, image, lessons } from '../lib/data.js';
+import { formatDate, formatScore, formatTime, image } from '../lib/data.js';
+import { useLessons } from '../hooks/useLessons.js';
 import { APP_NAME } from '../lib/config.js';
 
 export function Dashboard() {
@@ -181,6 +182,9 @@ function ResumeDraft() {
 }
 
 function TopicCards() {
+    // Two of the lessons the subject profiles offer; nothing to suggest until there are some.
+    const lessons = useLessons()?.slice(0, 2) ?? [];
+    if (!lessons.length) return null;
     return (
         <section className="topic-section">
             <div>
@@ -188,11 +192,11 @@ function TopicCards() {
                 <p className="muted small">{`Pilihan materi contoh untuk mencoba ${APP_NAME}.`}</p>
             </div>
             <div className="topic-cards">
-                {[lessons[1], lessons[2]].map((l) => (
+                {lessons.map((l) => (
                     <Link
                         to={lessonUrl(l)}
                         className={`topic-card ${l.subject === 'Biologi' ? 'biology' : ''}`}
-                        key={l.subject}
+                        key={`${l.subject}|${l.chapter}|${l.subchapter}`}
                     >
                         <img
                             src={image(

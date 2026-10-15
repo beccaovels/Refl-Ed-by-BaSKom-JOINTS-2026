@@ -1,4 +1,4 @@
-import { lessons } from './data.js';
+import { blankLesson } from './data.js';
 
 export function lessonUrl(item, scheduleId) {
     const p = new URLSearchParams({
@@ -16,7 +16,7 @@ export const current = () => {
         return JSON.parse(sessionStorage.getItem('gema-current-lesson') || '');
     } catch {
         return {
-            lesson: lessons[0],
+            lesson: blankLesson,
             scheduleId: null,
             material: null,
         };
