@@ -17,11 +17,27 @@ A missing or unknown `X-User-Id` gives 401. A session or report that belongs to 
 
 ## Materials
 
-`POST /materials` — multipart, field `file` (PDF, max 20 MB), optional → `{ id, filename | null, page_count }`
-- 400 if not a PDF; 413 if too large.
-- Without a file an empty material is created (`page_count` 0). Setup always creates a material, so photos of worked examples have somewhere to live even when there is no PDF.
+A material is the lesson's bundle of items: PDFs and pictures (JPEG, PNG), shown on the stage one at a time. Each item owns a range of the material's page numbers (`first_page` .. `first_page + page_count - 1`), handed out in upload order and never reused, so every PDF page and every picture is a "slide" for `/slides`, the AI students and the report. Photos of worked examples take the next free page the same way.
 
-`GET /materials/{id}/file` → the PDF (for pdf.js). 404 when the material has no PDF.
+`POST /materials` — multipart, field `file` optional → `{ id, filename | null, page_count }`
+- Without a file: a new, empty bundle (`page_count` 0). Setup creates one, then adds items with `POST /materials/{id}/files`.
+- With a file (PDF only, as before): the bundle with that PDF in it. 400 if not a PDF; 413 if too large.
+
+`POST /materials/{id}/files` — multipart, field `file` (one PDF, JPEG or PNG) → `MaterialFile`
+- 201 for a PDF (split into pages at once, `status: "ready"`). 202 for a picture: its text is read in the background (10–30 s), like a PDF page's text, so AI students can ask about it. Pictures are read one at a time.
+- The type is checked from the file's content, not its name: 400 if it is not a PDF, JPEG or PNG, or cannot be opened.
+- Limits, per file: PDF 20 MB, picture 8 MB. Per lesson (all items and worked-example photos together): 10 files, 50 MB, 300 PDF pages. 413 for a size or page limit, 409 for the number of files. Each `detail` is ready-to-display Bahasa Indonesia.
+
+`GET /materials/{id}/files` → `{ files: [MaterialFile], used: { files, bytes, pdf_pages }, limits: { files, bytes, pdf_bytes, image_bytes, pdf_pages } }`, items in page order. Poll while any `status` is `reading`.
+
+`GET /files/{id}/content` → the item itself (`application/pdf`, `image/jpeg` or `image/png`; Range requests supported, for pdf.js).
+
+`DELETE /materials/{id}/files/{file_id}` → 204. Removes the item and its text. Other items keep their pages. 409 once a session has been created with this material.
+
+`MaterialFile`: `{ id, material_id, kind, filename, size_bytes, first_page, page_count, status, status_text }`
+- `kind`: `pdf` | `image`. `status`: `ready` | `reading` | `unreadable` | `failed`. A picture that is `unreadable` or `failed` can still be shown on stage; the AI just has no text for it. `status_text` is ready-to-display Bahasa Indonesia, empty when there is nothing to say.
+
+`GET /materials/{id}/file` → the bundle's first PDF (kept for older clients). 404 when it has none.
 
 ### Handwritten worked examples ("Papan tulis")
 

@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.models import Material, WorkedExample
+from app.models import Material, MaterialFile, WorkedExample
 from app.services import evidence, llm, rag
 
 log = logging.getLogger(__name__)
@@ -66,6 +66,16 @@ CANNED_READING = {
 Verdict = Literal["follows", "recheck", "cannot_tell"]
 
 
+# A picture the teacher shows as material (not a worked example), used with LLM_PROVIDER=fake.
+CANNED_PICTURE = ["(Contoh) Tabel ruang sampel pelemparan dua koin: AA, AG, GA, GG. Peluang muncul dua angka = 1/4."]
+MAX_PICTURE_CHARS = 4_000  # what a picture can add to a prompt
+
+
+class PictureText(BaseModel):
+    readable: bool = True
+    texts: list[str] = Field(default_factory=list, description="Teks pada gambar, satu bagian per butir, urut seperti dibaca")
+
+
 class NotAPicture(ValueError):
     """The uploaded file is missing, damaged, or not a JPEG or PNG."""
 
@@ -100,7 +110,7 @@ def add(db: Session, material_id: str, filename: str, path: str) -> WorkedExampl
     material = db.get(Material, material_id)
     if material is None:
         raise ValueError(f"Material {material_id} not found")
-    page = material.page_count + len(for_material(db, material_id)) + 1
+    page = rag.allocate_pages(db, material, 1)  # the next free page, after every item in the material
     example = WorkedExample(material_id=material_id, page=page, filename=filename, path=path)
     db.add(example)
     db.commit()
@@ -154,6 +164,38 @@ def confirm(
     return _store(db, example, "confirmed", reading, _check(reading, subject))
 
 
+def read_picture(db: Session, file_id: str, subject: str = "") -> MaterialFile | None:
+    """Copy the text of a picture the teacher brought as material, so the AI students and the report can use it.
+
+    Unlike a worked example nothing is checked or confirmed: the picture is reference material, like a PDF page.
+    Never raises for a photo or provider problem: the item ends as `unreadable` or `failed` and can still be
+    shown on stage. Returns None when the item was removed while it was being read.
+    """
+    item = db.get(MaterialFile, file_id)
+    if item is None:
+        return None
+    try:
+        texts, status = _read_picture(item.path, subject), "ready"
+    except llm.LLMError as err:
+        log.warning("reading picture %s failed: %s", file_id, err)
+        texts, status = [], "failed"
+    except NotAPicture as err:
+        log.warning("picture %s could not be opened: %s", file_id, err)
+        texts, status = [], "unreadable"
+    if not texts and status == "ready":
+        status = "unreadable"
+    db.expire_all()
+    item = db.get(MaterialFile, file_id)
+    if item is None:  # the teacher removed it meanwhile
+        return None
+    rag.index_page(db, item.material_id, item.first_page, texts)
+    item.status = status
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 def for_material(db: Session, material_id: str) -> list[WorkedExample]:
     """The material's worked examples, in the order they are shown."""
     return list(
@@ -193,6 +235,27 @@ def _read(path: str, subject: str) -> dict | None:
         "final_answer": reply.final_answer.strip(),
         "answer_unclear": reply.answer_unclear,
     }
+
+
+def _read_picture(path: str, subject: str) -> list[str]:
+    """The text on a picture, as chunks for `rag.index_page`; empty when nothing could be read."""
+    if llm.is_fake():
+        return list(CANNED_PICTURE)
+    prompt = Template(_prompt("image_read.md")).substitute(subject=_subject(subject))
+    reply = llm.generate_json(prompt, PictureText, images=[_photo(path)], model=settings.llm_vision_model or None)
+    if not reply.readable:
+        return []
+    chunks, current, total = [], "", 0
+    for text in (" ".join(t.split()) for t in reply.texts):
+        if not text or total >= MAX_PICTURE_CHARS:
+            continue
+        text = text[: MAX_PICTURE_CHARS - total]
+        total += len(text)
+        if current and len(current) + len(text) > rag.MAX_CHUNK_CHARS:
+            chunks.append(current)
+            current = ""
+        current = f"{current} {text}".strip()
+    return chunks + ([current] if current else [])
 
 
 def _photo(path: str) -> llm.Image:

@@ -1,16 +1,20 @@
-"""Material lookup: split the teacher's PDF into chunks and find the ones closest to the transcript.
+"""Material lookup: split the teacher's material into chunks and find the ones closest to the transcript.
 
-A photo of a worked example is a page too: `examples.py` reads it and stores its text here with `index_page`.
+A lesson's material holds several items (PDFs and pictures), each owning a range of page numbers given out
+by `allocate_pages`. A picture or a photo of a worked example is a page too: `examples.py` reads it and stores
+its text here with `index_page`.
 """
 
 import math
 import re
 from collections import Counter
+from threading import Lock
 
 import pymupdf
+from sqlalchemy import func
 from sqlmodel import Session, delete, select
 
-from app.models import Material, MaterialChunk
+from app.models import Material, MaterialChunk, MaterialFile, WorkedExample
 
 MAX_CHUNK_CHARS = 700
 MIN_BLOCK_CHARS = 3
@@ -33,6 +37,55 @@ def index_material(db: Session, material_id: str) -> None:
         for page_number, page in enumerate(pdf, start=1):
             for order, text in enumerate(_chunks(page)):
                 db.add(MaterialChunk(material_id=material_id, page=page_number, order=order, text=text))
+    db.commit()
+
+
+# Page numbers are handed out under this lock: two uploads at once must never get the same pages.
+_pages_lock = Lock()
+
+
+def allocate_pages(db: Session, material: Material, count: int) -> int:
+    """Reserve `count` page numbers in the material for a new item and return the first one.
+
+    Every item gets its own range after everything given out so far (PDF pages, pictures,
+    photos of worked examples), so numbers never collide and stay stable when an item is removed.
+    """
+    with _pages_lock:
+        db.refresh(material)
+        last_example = db.exec(select(func.max(WorkedExample.page)).where(WorkedExample.material_id == material.id)).one()
+        last_file = db.exec(
+            select(func.max(MaterialFile.first_page + MaterialFile.page_count - 1)).where(MaterialFile.material_id == material.id)
+        ).one()
+        first = max(material.page_count, last_example or 0, last_file or 0) + 1
+        material.page_count = first + count - 1
+        db.add(material)
+        db.commit()
+        return first
+
+
+def index_pdf(db: Session, material_id: str, path: str, first_page: int) -> int:
+    """Split one PDF into chunks stored from `first_page` on. Returns its number of pages. Safe to call again."""
+    with pymupdf.open(path) as pdf:
+        last = first_page + len(pdf) - 1
+        db.exec(
+            delete(MaterialChunk).where(
+                MaterialChunk.material_id == material_id, MaterialChunk.page >= first_page, MaterialChunk.page <= last
+            )
+        )
+        for offset, page in enumerate(pdf):
+            for order, text in enumerate(_chunks(page)):
+                db.add(MaterialChunk(material_id=material_id, page=first_page + offset, order=order, text=text))
+        db.commit()
+        return len(pdf)
+
+
+def forget_pages(db: Session, material_id: str, first_page: int, last_page: int) -> None:
+    """Remove the text of a range of pages, for an item the teacher took out."""
+    db.exec(
+        delete(MaterialChunk).where(
+            MaterialChunk.material_id == material_id, MaterialChunk.page >= first_page, MaterialChunk.page <= last_page
+        )
+    )
     db.commit()
 
 

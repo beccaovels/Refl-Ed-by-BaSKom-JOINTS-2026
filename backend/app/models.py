@@ -30,7 +30,27 @@ class Material(SQLModel, table=True):
     user_id: str = Field(foreign_key="users.id", index=True)
     filename: Optional[str] = None  # no PDF: the material holds only photos of worked examples
     path: Optional[str] = None
-    page_count: int = 0  # pages of the PDF; photos are numbered after these
+    page_count: int = 0  # the highest page number given out to the items in this material (see rag.allocate_pages)
+
+
+class MaterialFile(SQLModel, table=True):
+    """One item a teacher brought to a lesson: a PDF or a picture (JPEG/PNG).
+
+    Each item owns a range of the material's page numbers, so everything that works
+    by (material_id, page) treats it like a slide: questions, page turns, metrics.
+    """
+
+    __tablename__ = "material_files"
+    id: str = Field(default_factory=new_id, primary_key=True)
+    material_id: str = Field(foreign_key="materials.id", index=True)
+    kind: str  # pdf | image
+    filename: str
+    path: str
+    size_bytes: int
+    first_page: int
+    page_count: int
+    status: str = "ready"  # ready | reading | unreadable | failed (pictures are read in the background)
+    created_at: datetime = Field(default_factory=now)
 
 
 class WorkedExample(SQLModel, table=True):
