@@ -65,8 +65,8 @@ Each row is one screen: the files that draw it, the endpoints it calls, the back
 | Landing `/` | `pages/Landing.tsx` | none | none | none | UIUX |
 | Login (a small name + email form) | on Landing or Dashboard | `POST /auth/login` | `auth.py` | `users` | BE+FE 2 |
 | Dashboard `/dashboard` | `pages/Dashboard.tsx` | `GET /sessions` | `sessions.py` | `sessions`, `reports` | BE+FE 2 |
-| Setup `/setup` | `pages/Setup.tsx` | `GET /profiles`, `POST /materials`, `POST /sessions` | `profiles.py`, `materials.py`, `sessions.py` | `materials`, `material_chunks`, `sessions` | BE+FE 2 |
-| Simulator Room `/room/:sessionId` | `pages/Room.tsx`, `features/simulator/` | `GET /sessions/{id}`, `GET /materials/{id}/file`, `POST /sessions/{id}/audio`, `/slides`, `/signals`, `/end`, `/finish` | `audio.py`, `signals.py`, `sessions.py` | `transcript_segments`, `questions`, `slide_events`, `signal_bins` | BE+FE 1 (vision: AI lead) |
+| Setup `/setup` | `pages/Setup.tsx` | `GET /profiles`, `POST /materials`, `POST /materials/{id}/examples`, `GET /materials/{id}/examples`, `POST /examples/{id}/confirm`, `POST /sessions` | `profiles.py`, `materials.py`, `sessions.py` | `materials`, `material_chunks`, `worked_examples`, `sessions` | BE+FE 2 |
+| Simulator Room `/room/:sessionId` | `pages/Room.tsx`, `features/simulator/` | `GET /sessions/{id}`, `GET /materials/{id}/file`, `GET /materials/{id}/examples`, `GET /examples/{id}/file`, `POST /materials/{id}/examples`, `POST /examples/{id}/confirm`, `POST /sessions/{id}/audio`, `/slides`, `/signals`, `/end`, `/finish` | `audio.py`, `signals.py`, `sessions.py`, `materials.py` | `transcript_segments`, `questions`, `slide_events`, `signal_bins`, `worked_examples` | BE+FE 1 (vision: AI lead) |
 | Report `/report/:sessionId` | `pages/Report.tsx`, `features/report/` | `GET /sessions/{id}/report`, `POST /reports/{id}/flags` | `reports.py` | `reports`, `feedback_flags` | BE+FE 2 |
 | History `/history` | `pages/History.tsx`, `features/history/` | `GET /sessions` | `sessions.py` | `sessions`, `reports` | BE+FE 2 |
 | Schedule `/schedule` | `pages/Schedule.tsx`, `features/schedule/` | `GET /schedule` | `schedule.py` | `schedule` | BE+FE 2 |
@@ -81,7 +81,8 @@ components/   shared UI used by more than one page (buttons, cards, score badge)
 features/
   simulator/
     audio/    microphone capture, pause detection, WAV encoding, upload queue with retry   BE+FE 1
-    stage/    material viewer (pdf.js), next/previous page, page-turn logging              BE+FE 1
+    stage/    material viewer (pdf.js), next/previous page, page-turn logging; the switch
+              between "Materi" and "Papan tulis" (photos of the teacher's own working)     BE+FE 1
     room/     call layout, camera tile, AI student tiles, transcript panel, HUD            BE+FE 1
     vision/   MediaPipe worker, features, calibration, 10 s bins                           AI lead
   report/     report sections, feedback item, "this is not accurate" button                BE+FE 2
@@ -116,13 +117,14 @@ api/          one file per group of endpoints: auth, profiles, materials, sessio
 services/     the AI pipeline                                                                AI lead
   stt.py        transcribe(): the only code that calls a speech-to-text provider
   llm.py        generate_json(): the only code that calls an LLM provider
-  rag.py        split the PDF into chunks, embed, find the chunks closest to the transcript
+  rag.py        split the PDF into chunks, find the chunks closest to the transcript
+  examples.py   a photo of the teacher's handwritten working: read it, let the teacher confirm, then check
   questions.py  decide when to ask, build the question, misconception, capstone, nudge
   metrics.py    pace, pauses, questions asked, reading share, time per slide (no LLM)
   scoring.py    build the report: metrics, LLM levels per parameter, evidence check, card scores
   rubric.py     the six cards, their parameters and weights, as data
   report_schema.py  ReportOut: the Report shape as a Pydantic class
-  evidence.py   drop any quote that is not in the transcript; catch banned words
+  evidence.py   drop any quote that is not the teacher's own words, said or written; catch banned words
 prompts/      prompt texts as files, never inside Python strings                             AI lead
 profiles/     one YAML file per subject and phase                                            AI lead
 ```
@@ -158,6 +160,8 @@ scoring.py: metrics.py → llm.py with the rubric prompt and profile → evidenc
 
 ### Where the two sides meet
 
+The whole AI side, file by file, with the request flows and endpoint sketches, is in `docs/ai-pipeline.md`. Read it before writing an endpoint that calls a service.
+
 `api/` (BE+FE 2) and `services/` (AI lead) are written by different people, so the function names are agreed up front. Proposed, to confirm at the first check-in:
 
 | Function | Called from | Returns |
@@ -168,8 +172,13 @@ scoring.py: metrics.py → llm.py with the rubric prompt and profile → evidenc
 | `rag.index_material(db, material_id)` | `api/materials.py` after saving the file and the `materials` row | nothing; fills `material_chunks` |
 | `scoring.build_report(db, session_id)` | `api/sessions.py` (`/finish`) | the complete `Report` dict, already validated; the endpoint stores it whole in `reports.data` and copies `overall.score` to `reports.overall_score`. Takes 10–40 s, so run it in the background |
 | `profiles.list_tested()` | `api/profiles.py` | the profile list, in the shape of `GET /profiles` |
+| `examples.add(db, material_id, filename, path)` | `api/materials.py` (`POST /materials/{id}/examples`), after saving the image file | the new `WorkedExample` row with its `page`; status `reading` |
+| `examples.read(db, example_id, subject="")` | the same endpoint, in the background (10–30 s) | the row; never raises for a bad photo or a busy provider, the status says what happened |
+| `examples.confirm(db, example_id, question=None, steps=None, final_answer=None, subject="")` | `POST /examples/{id}/confirm`. Pass only the fields the teacher sent | the row with its check; `ValueError` when there is nothing to confirm (answer 400). About 5–15 s |
+| `examples.for_material(db, material_id)` | `GET /materials/{id}/examples` | the rows in page order |
+| `examples.public(row)` | every endpoint that returns an example | the `Example` dict of the contract |
 
-All six exist in `backend/app/services/` and return the contract's shapes. `db` is the SQLModel session from `get_session`. They raise `ValueError` for an unknown id, and `stt.STTError` / `llm.LLMError` when a provider fails.
+All of these exist in `backend/app/services/` and return the contract's shapes. `db` is the SQLModel session from `get_session`. They raise `ValueError` for an unknown id, and `stt.STTError` / `llm.LLMError` when a provider fails.
 
 The report is real: metrics are computed, the LLM rates each parameter with a quote, and every quote is checked against the transcript. The frontend computes nothing; every score, label and text is in the `Report`. Its shape is the Pydantic class `app.services.report_schema.ReportOut`, which the reports endpoint can use as `response_model`. To see a report without a frontend, run `python ../ml/eval/try_report.py` from `backend/`.
 
@@ -186,7 +195,14 @@ signals.stop()
 
 `now` must return milliseconds since the lesson started, the same clock the audio chunks use. The folder needs one package: `npm install @mediapipe/tasks-vision@0.10.14`. Until the frontend project exists, the code is typechecked and tested from `ml/vision-harness/` (`npm install`, `npm run check`), and `npm run dev` there opens a page that shows the live signals from a webcam, the microphone alone, or a recorded clip.
 
-The `questions` table gained three optional columns for this (`level`, `reply_to`, `satisfied`). SQLite does not add columns to an existing file, so delete `backend/data/app.db` once after pulling; it is recreated on startup.
+**Handwritten worked examples ("Papan tulis").** A teacher can photograph a question and their own working, in Setup or during the lesson, and show it on the main stage in place of the slide. Who builds what:
+
+- **BE+FE 2:** the four endpoints in `docs/api-contract.md` (they only call the `examples.*` functions above), the Setup upload with the confirm card, and the "Contoh soal" section of the Report from `report.examples`.
+- **BE+FE 1:** the stage switch between "Materi" and "Papan tulis", an add-photo button in the room, a one-tap confirm card that never interrupts the lesson, and a `POST /sessions/{id}/slides` with the photo's `page` whenever it goes on stage.
+- **The confirm card** shows "Apakah ini yang Anda tulis?" with the question, each step and the final answer in editable fields, steps with `unclear: true` highlighted, and two actions: "Ya, sesuai" (send `{}`) and save edits (send the fields). The check appears only after that. Never show a check, or hint at one, before the teacher confirms.
+- With `LLM_PROVIDER=fake` a sample reading comes back (one step marked unclear) and the check agrees, so all of this can be built with no key. To try a real photo without a frontend: `python ../ml/eval/try_example.py photo.jpg --confirm` from `backend/`.
+
+The `questions` table gained three optional columns (`level`, `reply_to`, `satisfied`), there is a new `worked_examples` table, and `materials.filename` and `path` may now be empty. SQLite does not change an existing file, so delete `backend/data/app.db` once after pulling; it is recreated on startup.
 
 To work with no API keys at all, set `STT_PROVIDER=fake` and `LLM_PROVIDER=fake` in `backend/.env`. While no profile is marked `tested` yet, `profiles.list_tested(include_untested=True)` shows them for local development.
 
