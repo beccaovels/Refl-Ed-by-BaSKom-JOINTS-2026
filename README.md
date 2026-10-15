@@ -22,10 +22,10 @@ Backend (Python 3.11+):
 
 ```
 cd backend
-python -m venv .venv
+python -m venv .venv            # macOS: python3 -m venv .venv
 .venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-copy ..\.env.example .env       # then fill in your keys
+copy ..\.env.example .env       # then fill in your keys. macOS: cp ../.env.example .env
 uvicorn app.main:app --reload
 ```
 

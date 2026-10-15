@@ -14,11 +14,14 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     stt_model: str = "whisper-large-v3"
     llm_model: str = ""
+    llm_vision_model: str = ""  # tried first when reading a photo; empty means llm_model
 
     database_url: str = "sqlite:///./data/app.db"
     upload_dir: str = "./data/uploads"
     frontend_origin: str = "http://localhost:5173"
     demo_mode: bool = True
+    # Local development only: list profiles that have not passed their checks yet.
+    show_untested_profiles: bool = False
 
 
 settings = Settings()

@@ -28,9 +28,44 @@ class Material(SQLModel, table=True):
     __tablename__ = "materials"
     id: str = Field(default_factory=new_id, primary_key=True)
     user_id: str = Field(foreign_key="users.id", index=True)
+    filename: Optional[str] = None  # no PDF: the material holds only photos of worked examples
+    path: Optional[str] = None
+    page_count: int = 0  # the highest page number given out to the items in this material (see rag.allocate_pages)
+
+
+class MaterialFile(SQLModel, table=True):
+    """One item a teacher brought to a lesson: a PDF or a picture (JPEG/PNG).
+
+    Each item owns a range of the material's page numbers, so everything that works
+    by (material_id, page) treats it like a slide: questions, page turns, metrics.
+    """
+
+    __tablename__ = "material_files"
+    id: str = Field(default_factory=new_id, primary_key=True)
+    material_id: str = Field(foreign_key="materials.id", index=True)
+    kind: str  # pdf | image
     filename: str
     path: str
-    page_count: int = 0
+    size_bytes: int
+    first_page: int
+    page_count: int
+    status: str = "ready"  # ready | reading | unreadable | failed (pictures are read in the background)
+    created_at: datetime = Field(default_factory=now)
+
+
+class WorkedExample(SQLModel, table=True):
+    __tablename__ = "worked_examples"
+    # a photo of the teacher's handwritten question and working, shown as an extra page of the material
+    __table_args__ = (UniqueConstraint("material_id", "page"),)
+    id: str = Field(default_factory=new_id, primary_key=True)
+    material_id: str = Field(foreign_key="materials.id", index=True)
+    page: int
+    filename: str
+    path: str
+    status: str = "reading"  # reading | ready | unreadable | failed
+    reading: Optional[dict] = Field(default=None, sa_column=Column(JSON))  # what was read from the photo
+    check_result: Optional[dict] = Field(default=None, sa_column=Column(JSON))  # `check` in the API
+    created_at: datetime = Field(default_factory=now)
 
 
 class MaterialChunk(SQLModel, table=True):
@@ -80,16 +115,34 @@ class TranscriptSegment(SQLModel, table=True):
     text: str
 
 
+class AudioChunk(SQLModel, table=True):
+    """One processed audio piece and what its reply carried. Not the audio itself, which is never stored.
+
+    A silent piece has no transcript row, so this is what lets a resent piece get its first reply back.
+    """
+
+    __tablename__ = "audio_chunks"
+    __table_args__ = (UniqueConstraint("session_id", "seq"),)
+    id: str = Field(default_factory=new_id, primary_key=True)
+    session_id: str = Field(foreign_key="sessions.id", index=True)
+    seq: int
+    segment_id: Optional[str] = Field(default=None, foreign_key="transcript_segments.id")
+    event_id: Optional[str] = Field(default=None, foreign_key="questions.id")
+
+
 class Question(SQLModel, table=True):
     __tablename__ = "questions"
     id: str = Field(default_factory=new_id, primary_key=True)
     session_id: str = Field(foreign_key="sessions.id", index=True)
-    kind: str  # regular | misconception | capstone | nudge
+    kind: str  # regular | misconception | capstone | nudge | answer | reaction
     persona: Optional[str] = None
     text: str
     asked_at_ms: int
     answered_at_ms: Optional[int] = None
     refers_to_ms: Optional[int] = None
+    level: Optional[int] = None  # depth of a student question: 1 clarify, 2 why/how, 3 what-if
+    reply_to: Optional[str] = None  # reaction: id of the question it reacts to
+    satisfied: Optional[bool] = None  # reaction: whether the teacher's answer settled the question
 
 
 class SignalBin(SQLModel, table=True):

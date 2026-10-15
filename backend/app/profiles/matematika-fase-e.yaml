@@ -12,7 +12,7 @@ label: Matematika Kelas X
 # transcript that pass the checks. Untested profiles are not shown in Setup.
 tested: false
 
-demo_chapter: ""        # TODO: chosen by the team
+demo_chapter: "Bab 7 Peluang"
 
 # What "clear" means in this subject. From the five process elements,
 # Panduan Mata Pelajaran Matematika 2025, p. 11.
@@ -22,6 +22,36 @@ clarity_anchors:
   - Memakai lebih dari satu representasi, misalnya kata-kata, simbol, tabel, atau gambar (representasi)
   - Mengaitkan materi dengan konsep lain atau dengan kehidupan sehari-hari (koneksi)
   - Menjelaskan istilah baru saat pertama kali dipakai (komunikasi)
+
+# The two Clarity parameters that belong to this subject (30 and 20 points). The other
+# two, "new terms explained" and "step by step", are shared by every subject.
+# From the process elements "penalaran dan pembuktian" and "representasi", same source, p. 11.
+clarity_parameters:
+  - title: Menjelaskan alasan di balik rumus
+    look_for: Guru menjelaskan mengapa suatu rumus atau langkah berlaku, tidak hanya menyebutkan rumusnya.
+  - title: Lebih dari satu representasi
+    look_for: Gagasan yang sama disajikan dengan lebih dari satu cara, misalnya kata-kata, simbol, tabel, grafik, atau gambar.
+
+# What a clearly set-out worked example looks like. Used for the Clarity parameter "Langkah
+# pengerjaan tertata dan dijelaskan" and for feedback on a photo of the teacher's own working.
+# The books give no fixed layout for a worked example (no "Diketahui / Ditanya / Jawab" in this
+# chapter), so these come from how the books present their own, plus Polya's phases.
+worked_example_practice:
+  # Student book p. 244: the sample space as a table with the event shaded. Teacher's book p. 257.
+  - title: Asal angkanya terlihat
+    look_for: Hasil yang dihitung dituliskan atau digambar (daftar, tabel, atau diagram ruang sampel), bukan hanya banyaknya.
+  # Student book p. 244: 2/36 = 1/18. Polya, "carrying out the plan".
+  - title: Satu langkah per baris
+    look_for: Tiap baris berisi satu langkah dan mengikuti baris sebelumnya, termasuk bentuk sebelum dan sesudah disederhanakan.
+  # Teacher's book p. 257: "Oleh karena ..., maka ...". Polya, "looking back".
+  - title: Jawaban akhir menjawab soal
+    look_for: Jawaban akhir ditulis sebagai kesimpulan yang menjawab pertanyaan soal.
+  # Panduan Mata Pelajaran Matematika 2025, p. 11 (penalaran). Teacher's book p. 257 ("bernalar").
+  - title: Alasan tiap langkah diucapkan
+    look_for: Saat menjelaskan, guru menyebut mengapa langkah itu dilakukan, bukan hanya hasilnya.
+
+# What "accurate" means in this subject, added to the scoring prompt.
+accuracy_focus: setiap langkah perhitungan dan hasil akhirnya, serta rumus yang disebutkan.
 
 # Contexts the ministry's guide recommends (pp. 3, 268). Used to seed "an idea you could try".
 context_seeds:
@@ -34,7 +64,74 @@ student_persona:
   age: 15-16
   style: Murid SMA kelas X; bertanya singkat dengan bahasa sehari-hari, dan bertanya arti istilah yang belum dijelaskan.
 
-# Documented student misconceptions for the demo chapter, copied from the
-# Buku Panduan Guru Matematika Kelas X with page numbers. Never invented.
-# Shape: { topic: "", misconception: "", source_page: 0 }
-misconceptions: []      # TODO: needs the grade 10 teacher's book
+# Everything below comes from: Buku Panduan Guru Matematika SMA/MA/SMK/MAK Kelas X,
+# Edisi Revisi (Kemendikbudristek, 2023). Page numbers are the printed ones.
+
+# What the phase asks of students, from Capaian Pembelajaran Fase E, pp. 6-7.
+# Added to the scoring prompt so the lesson is read against the right level.
+phase_expectation: >-
+  Fase E (kelas X). Untuk bab ini, murid diharapkan dapat menjelaskan peluang dan menentukan
+  frekuensi harapan dari kejadian majemuk, serta menyelidiki konsep kejadian saling bebas dan
+  saling lepas dan menentukan peluangnya. Murid sudah mengenal peluang sederhana dari SMP.
+
+# What these students already know, from "Ayo, Mengingat Kembali", p. 246. An AI student
+# does not ask about these basics and may refer back to them.
+assumed_knowledge:
+  - peluang sederhana dari SMP, misalnya peluang satu angka pada sebuah dadu
+  - banyaknya kemungkinan hasil pada pelemparan sebuah dadu atau uang logam
+  - bilangan ganjil, genap, dan prima
+
+# The kinds of questions natural to this subject.
+question_types:
+  - menanyakan alasan di balik suatu langkah atau rumus
+  - menanyakan apa yang terjadi kalau suatu syarat atau angka diubah
+  - meminta satu contoh lagi dari kehidupan sehari-hari
+  - menanyakan arti istilah yang belum dijelaskan
+
+# How deep a question may go. Level 1 clarifies, level 2 asks why or how,
+# level 3 asks what-if, links two ideas, or tests the idea with another case.
+question_depth:
+  first: [1, 2]        # the first two questions of a lesson
+  later: [1, 2, 3]
+  max_level_3: 1       # grade X: at most one level-3 question per lesson
+  note: Murid kelas X lebih sering meminta penjelasan dan alasan; pertanyaan "bagaimana kalau" hanya sesekali.
+
+# Sparking questions from the book, as examples of tone and depth (pp. 246, 260, 270).
+example_questions:
+  - text: Bagaimana kalian dapat menentukan peluang dari dua kejadian acak yang terkait seperti melempar dua dadu?
+    source_page: 246
+  - text: Dalam kondisi apa kamu dapat menjumlahkan masing-masing peluang kejadian untuk menentukan peluang dari kejadian yang berhubungan?
+    source_page: 260
+  - text: Bagaimana menentukan peluang dua kejadian terjadi secara bersamaan, misalnya seorang anak mewariskan gen lesung pipi dari ibunya dan dari ayahnya?
+    source_page: 270
+
+# Documented student misconceptions for the demo chapter. `misconception` is what the book
+# says; never invented. `triggers` are words in the teacher's speech that show the lesson
+# has reached the topic. `ask` is the misconception in a student's voice, used when the LLM
+# is unavailable.
+misconceptions:
+  - topic: Ruang sampel dua dadu
+    misconception: Mendapatkan angka yang sama pada dua dadu lebih sulit dibandingkan mendapatkan angka yang berbeda.
+    source_page: 249
+    triggers: [dua dadu, dua buah dadu, ruang sampel, angka yang sama]
+    ask: Tapi dapat angka kembar, misalnya 1 dan 1, itu lebih susah kan dibanding dapat 3 dan 5?
+  - topic: Kejadian saling bebas
+    misconception: Hasil kejadian sebelumnya dianggap memengaruhi hasil kejadian selanjutnya, walaupun kejadiannya saling bebas.
+    source_page: 258
+    triggers: [uang logam, koin, gambar dan angka, saling bebas, lemparan berikutnya]
+    ask: Kalau tadi sudah keluar gambar tiga kali berturut-turut, berarti lemparan berikutnya lebih besar peluangnya keluar angka, ya?
+  - topic: Kata "atau" dalam peluang
+    misconception: Kata "atau" dalam peluang dipahami seperti dalam percakapan sehari-hari, yaitu memilih salah satu dan bukan keduanya.
+    source_page: 261
+    triggers: [saling lepas, tidak saling lepas, aturan penjumlahan]
+    ask: Kalau soalnya bilang "sepeda atau motor", berarti yang pakai dua-duanya tidak ikut dihitung, kan?
+  - topic: Peluang teoretis dan peluang percobaan
+    misconception: Peluang percobaan dianggap pasti sama dengan peluang teoretis, misalnya angka genap pasti muncul tepat 5 kali dari 10 lemparan dadu.
+    source_page: 262
+    triggers: [peluang percobaan, peluang teoretis, peluang empiris, hasil percobaan]
+    ask: Peluang angka genap kan setengah, berarti kalau dadunya dilempar 10 kali pasti genapnya keluar 5 kali, ya?
+  - topic: Frekuensi relatif dan frekuensi harapan
+    misconception: Frekuensi relatif dan frekuensi harapan tertukar; frekuensi harapan dianggap berupa pecahan atau peluang, padahal berupa banyaknya kejadian.
+    source_page: 265
+    triggers: [frekuensi harapan, frekuensi relatif]
+    ask: Frekuensi harapan itu sama saja dengan frekuensi relatif, kan? Hasilnya pecahan juga?

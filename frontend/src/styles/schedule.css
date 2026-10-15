@@ -1,0 +1,44 @@
+/* ---------- Schedule ---------- */
+.schedule-layout{display:grid;grid-template-columns:1.05fr .95fr;gap:20px}
+.calendar-card,.upcoming-card{padding:24px}
+.calendar-top,.month-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.calendar-top h2{font-size:22px;text-transform:capitalize;margin:0}
+.month-actions{border:1px solid var(--line);border-radius:var(--r-md);padding:2px}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);text-align:center}
+.weekdays{color:var(--muted);font-size:13px;font-weight:600;margin:20px 0 10px}
+.days{gap:4px}
+.day{position:relative;border:0;background:transparent;min-height:50px;border-radius:var(--r-md);color:var(--ink);font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.day:hover{background:var(--blue-50)}
+.day.selected{background:var(--blue-600);color:#fff}
+.day.today:not(.selected){box-shadow:inset 0 0 0 2px var(--blue-200);color:var(--blue-700)}
+.calendar-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--orange-400)}
+.day .calendar-dot{position:absolute;bottom:7px}
+.day.selected .calendar-dot{background:var(--yellow-400)}
+.selected-day{border-top:1px solid var(--line);padding:18px 0 0;margin-top:16px}
+.selected-day h3{font-size:16px}
+.selected-day a{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 8px;margin:0 -8px;font-size:14px;border-radius:var(--r-sm)}
+.selected-day a:hover{background:var(--blue-50)}
+.calendar-footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);margin-top:14px;padding-top:12px;font-size:13px;color:var(--muted)}
+.calendar-footer>span{display:flex;align-items:center;gap:6px}
+.upcoming-card .section-heading h2{display:flex;align-items:center;gap:10px}
+.upcoming-card>.muted{margin-bottom:18px}
+.upcoming-list{display:grid;gap:10px}
+.upcoming-item{display:flex;gap:12px;padding:14px;border:1px solid var(--line);border-radius:var(--r-md)}
+.upcoming-icon{width:38px;height:38px;flex:none;background:var(--orange-50);color:var(--orange-800);border-radius:var(--r-sm);display:grid;place-items:center}
+.upcoming-copy{display:flex;flex-direction:column;gap:2px}
+.upcoming-copy strong{font-size:15px}
+.upcoming-copy small{color:var(--muted)}
+.inline-actions{display:flex;gap:16px;margin-top:8px}
+.inline-actions button{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;color:var(--blue-600);font-size:14px;font-weight:600;padding:2px 0;border-radius:var(--r-sm)}
+.inline-actions button:hover{text-decoration:underline;text-underline-offset:3px}
+.missed-card{padding:24px;margin-top:20px}
+.missed-card h2{margin-bottom:4px}
+.missed-card p{font-size:14px}
+.missed-row{display:flex;align-items:center;gap:20px;border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+.missed-row>span:first-child{display:flex;flex-direction:column;gap:2px;margin-right:auto}
+.missed-row strong{font-size:15px}
+.missed-row small{color:var(--muted)}
+/* "Terlewat" and its action share one size, weight and baseline; the label stays a tinted tag, the action stays a button */
+.missed-row{align-items:center}
+.missed-row .status{font-size:14px;line-height:1.2;padding:5px 12px}
+.missed-row .button{font-size:14px;min-height:36px;padding:6px 14px;font-weight:600}

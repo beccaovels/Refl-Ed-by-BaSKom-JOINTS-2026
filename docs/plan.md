@@ -77,6 +77,8 @@ No model training. Pretrained landmarks plus our own feature layer, which is whe
 
 ### How delivery is graded (cheerful is not the goal)
 
+> Updated 12 Oct: scores are 0–100, and "On-camera presence" became the "Tone & expression" card (voice and face together, voice-only with the camera off). The current cards, parameters and weights are in `docs/delivery-grading.md`; where this section differs, that file is right.
+
 Nothing is scored as "more is better", and no emotion is ever named or rewarded. A calm, serious teacher must be able to score 5.
 
 | Signal | What earns a good score | What lowers it | Never penalised |

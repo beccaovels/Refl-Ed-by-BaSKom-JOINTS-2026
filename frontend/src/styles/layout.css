@@ -1,0 +1,8 @@
+/* ---------- Page frame ---------- */
+.page{max-width:1280px;margin:auto;padding:36px clamp(24px,4vw,48px) 72px}
+.page-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:28px}
+.page-heading>div{max-width:68ch}
+.page-heading .button{flex:none}
+.page-subtitle{color:var(--muted);margin:0;font-size:16px}
+.section-heading{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:16px}
+.section-heading h2{margin:0}

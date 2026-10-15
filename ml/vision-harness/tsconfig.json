@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@vision/*": ["../../frontend/src/features/simulator/vision/*"],
+      "@mediapipe/tasks-vision": ["node_modules/@mediapipe/tasks-vision"]
+    }
+  },
+  "include": ["src", "tests", "../../frontend/src/features/simulator/vision"]
+}

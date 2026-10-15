@@ -1,0 +1,15 @@
+/* One file per area, in cascade order. Colours and fonts live in tokens.css. */
+@import './tokens.css';
+@import './base.css';
+@import './shell.css';
+@import './layout.css';
+@import './components.css';
+@import './login.css';
+@import './landing.css';
+@import './dashboard.css';
+@import './schedule.css';
+@import './history.css';
+@import './report.css';
+@import './setup.css';
+@import './room.css';
+@import './responsive.css';

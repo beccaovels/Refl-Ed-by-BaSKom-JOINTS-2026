@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signal harness</title>
+    <style>
+      body { font: 14px/1.4 system-ui, sans-serif; margin: 16px; max-width: 1100px; color: #1a1a1a; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      p { margin: 4px 0 12px; color: #555; }
+      .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+      video { width: 360px; background: #111; border-radius: 6px; transform: scaleX(-1); }
+      video.clip { transform: none; }
+      button, label.file { font: inherit; padding: 6px 10px; margin: 0 6px 6px 0; cursor: pointer; }
+      #hud { font-family: ui-monospace, monospace; white-space: pre; background: #f4f4f4; padding: 10px; border-radius: 6px; min-width: 300px; }
+      table { border-collapse: collapse; margin-top: 12px; font-family: ui-monospace, monospace; font-size: 12px; }
+      th, td { border: 1px solid #ddd; padding: 3px 8px; text-align: right; }
+      th { background: #f4f4f4; }
+      tr.unmeasured td { color: #999; }
+      #status { margin: 8px 0; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <h1>Signal harness</h1>
+    <p>
+      Tries the voice and camera signal code before the Simulator Room exists. Nothing is uploaded: open the Network tab
+      to check. The table below is exactly what the room would send, one row per ten seconds.
+    </p>
+    <div>
+      <button id="webcam">Start camera + microphone</button>
+      <button id="micOnly">Start microphone only</button>
+      <label class="file">Replay a clip <input id="clip" type="file" accept="video/*,audio/*" hidden /></label>
+      <button id="calibrate" disabled>Calibrate (3 s)</button>
+      <button id="stop" disabled>Stop</button>
+      <button id="export" disabled>Download bins (JSON)</button>
+    </div>
+    <div id="status">Idle.</div>
+    <div class="row">
+      <video id="video" autoplay playsinline muted></video>
+      <div id="hud">Waiting for signals.</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>start</th><th>measured</th><th>face seen</th><th>facing</th><th>posture ok</th><th>hands moving</th>
+          <th>face liveliness</th><th>volume</th><th>pitch spread (st)</th>
+        </tr>
+      </thead>
+      <tbody id="bins"></tbody>
+    </table>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
