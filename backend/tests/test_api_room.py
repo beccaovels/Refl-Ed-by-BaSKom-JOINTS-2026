@@ -102,10 +102,13 @@ def test_enough_speech_brings_a_student_question_once(client, room, speech, engi
     speech()
     replies = [send(client, room, i, i * 20_000, i * 20_000 + 19_000).json() for i in range(5)]
     events = [r["event"] for r in replies if r["event"]]
-    assert len(events) == 1 and events[0]["kind"] == "regular" and events[0]["persona"]["name"]
-    seq = next(r["seq"] for r in replies if r["event"])
-    assert send(client, room, seq, seq * 20_000, seq * 20_000 + 19_000).json()["event"] == events[0]
-    assert count(engine, Question) == 1
+    asked = [e for e in events if e["kind"] == "regular"]
+    assert len(asked) == 1 and asked[0]["persona"]["name"]  # one question, never repeated
+    # the student may then react to the teacher's continued speech: a reaction, never a second question
+    assert all(e["kind"] in {"regular", "reaction", "answer"} for e in events)
+    seq = next(r["seq"] for r in replies if r["event"] and r["event"]["id"] == asked[0]["id"])
+    assert send(client, room, seq, seq * 20_000, seq * 20_000 + 19_000).json()["event"] == asked[0]
+    assert count(engine, Question) == len(events)  # a resent piece adds nothing
 
 
 def test_a_provider_failure_is_502_and_the_retry_works(client, room, monkeypatch, engine):
@@ -252,3 +255,22 @@ def test_a_whole_lesson_from_login_to_report(client, room, speech):
     assert session["status"] == "ended" and session["ended_at"]
     listed = client.get("/api/sessions", headers=room["headers"]).json()
     assert listed[0]["overall_score"] == report.json()["overall"]["score"]
+
+
+def test_a_page_after_the_pdf_is_a_photo_of_a_worked_example(client, login, engine):
+    from app.models import WorkedExample
+
+    me = login()
+    pdf = pymupdf.open()
+    pdf.new_page()
+    material = client.post("/api/materials", files={"file": ("satu.pdf", pdf.tobytes(), "application/pdf")}, headers=me).json()
+    body = {"profile_id": "matematika-fase-e", "class_name": "X-1", "subject": "Matematika", "chapter": "Peluang",
+            "material_id": material["id"]}  # fmt: skip
+    session = client.post("/api/sessions", json=body, headers=me).json()
+    url = f"/api/sessions/{session['id']}/slides"
+    assert client.post(url, json={"page": 2, "t_ms": 0}, headers=me).status_code == 422  # no photo yet
+    with Session(engine) as db:
+        db.add(WorkedExample(material_id=material["id"], page=2, filename="papan.jpg", path="x"))
+        db.commit()
+    assert client.post(url, json={"page": 2, "t_ms": 5_000}, headers=me).status_code == 204  # now it is the photo
+    assert client.post(url, json={"page": 3, "t_ms": 6_000}, headers=me).status_code == 422

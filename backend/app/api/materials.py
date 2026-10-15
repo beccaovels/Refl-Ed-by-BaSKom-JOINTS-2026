@@ -1,4 +1,6 @@
-"""The teacher's chapter PDF: uploaded once in Setup, shown on the stage, used for questions and scoring."""
+"""The teacher's material: a chapter PDF (optional), uploaded once in Setup, shown on the stage and used for questions and scoring.
+
+A material without a PDF is still created, because photos of worked examples live inside a material."""
 
 import logging
 from pathlib import Path
@@ -25,10 +27,15 @@ PDF_SIGNATURE = b"%PDF-"
 
 @router.post("/materials", response_model=MaterialOut)
 def upload_material(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(default=None),
     user: User = Depends(current_user),
     db: Session = Depends(get_session),
 ):
+    if file is None or (not file.filename and not file.size):  # no file chosen: an empty material
+        empty = Material(user_id=user.id)
+        db.add(empty)
+        db.commit()
+        return MaterialOut(id=empty.id, filename=None, page_count=0)
     data = _read_limited(file)
     if not data.startswith(PDF_SIGNATURE):
         raise HTTPException(status_code=400, detail="Berkas harus berupa PDF.")
@@ -74,7 +81,7 @@ def upload_material(
 @router.get("/materials/{material_id}/file", response_class=FileResponse)
 def material_file(material_id: str, user: User = Depends(current_user), db: Session = Depends(get_session)):
     material = db.get(Material, material_id)
-    if material is None or material.user_id != user.id or not Path(material.path).is_file():
+    if material is None or material.user_id != user.id or not material.path or not Path(material.path).is_file():
         raise HTTPException(status_code=404, detail="Materi tidak ditemukan.")
     return FileResponse(material.path, media_type="application/pdf", filename=material.filename)
 

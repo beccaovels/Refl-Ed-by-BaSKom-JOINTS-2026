@@ -56,6 +56,7 @@ def test_login_rejects_missing_or_invalid_fields(client, body):
 
 
 def test_untested_profiles_are_hidden_unless_switched_on(client, monkeypatch):
+    monkeypatch.setattr(settings, "show_untested_profiles", False)  # whatever backend/.env says
     assert client.get("/api/profiles").json() == []  # no profile is marked tested yet
     monkeypatch.setattr(settings, "show_untested_profiles", True)
     listed = client.get("/api/profiles").json()
@@ -192,3 +193,14 @@ def test_schedule_lists_only_my_planned_sessions_in_time_order(client, login, en
 
 def test_schedule_needs_a_logged_in_teacher(client):
     assert client.get("/api/schedule").status_code == 401
+
+
+# --- materials without a PDF ---
+
+
+def test_a_material_can_be_created_without_a_pdf(client, login, engine):
+    me = login()
+    r = client.post("/api/materials", headers=me)
+    assert r.status_code == 200 and r.json()["filename"] is None and r.json()["page_count"] == 0
+    assert client.get(f"/api/materials/{r.json()['id']}/file", headers=me).status_code == 404  # no PDF to serve
+    assert new_session(client, me, material_id=r.json()["id"]).status_code == 200  # usable for a session

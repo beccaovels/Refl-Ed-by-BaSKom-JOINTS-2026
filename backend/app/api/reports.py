@@ -107,9 +107,10 @@ def flag_item(report_id: str, body: FlagIn, user: User = Depends(current_user), 
 
 
 def _item_lists(data: dict) -> list[list]:
-    """Every list of flaggable items in a report: strengths, each card's items, ideas."""
+    """Every list of flaggable items in a report: strengths, each card's items, ideas, each worked example's items."""
     lists = [data.get("strengths") or [], data.get("ideas") or []]
     lists += [d.get("items") or [] for d in data.get("dimensions") or []]
+    lists += [e.get("items") or [] for e in data.get("examples") or []]
     return lists
 
 
