@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     upload_dir: str = "./data/uploads"
     frontend_origin: str = "http://localhost:5173"
     demo_mode: bool = True
+    # Local development only: list profiles that have not passed their checks yet.
+    show_untested_profiles: bool = False
 
 
 settings = Settings()
