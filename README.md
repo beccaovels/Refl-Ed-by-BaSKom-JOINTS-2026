@@ -1,6 +1,5 @@
-# [BaSKom @ JOINTS] AI teaching simulator
-
-JOINTS Hackathon 2026 (UGM), team BaSKom. The product name is not decided yet. The UI reads its name from one constant, `APP_NAME` in `frontend/src/lib/config.js`, so it can be changed in one place.
+# [BaSKom @ JOINTS] - Refl-Ed
+JOINTS Hackathon 2026 (UGM), team BaSKom. 
 
 Indonesian teachers rehearse a lesson in a room that looks like a video call. They present their own material, an AI student asks questions live, and afterwards they get a report built from evidence in their own words. It runs locally; nothing is deployed.
 
