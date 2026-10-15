@@ -583,3 +583,16 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .login-card label{font-size:12px;font-weight:700;display:flex;flex-direction:column;gap:8px}
 .login-card input{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--ink);padding:12px 13px;min-height:43px;font-size:14px}
 .logout-link{background:none;border:0;cursor:pointer;font-size:12px}
+
+/* Mode A: the teacher's PDF on the stage */
+.lesson-stage.has-pdf{min-height:min(78vh,720px)}
+.stage-center.has-pdf{flex:1;min-height:0;width:100%;margin:0;padding:0 22px;display:flex}
+.pdf-stage{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;gap:10px}
+.pdf-canvas-holder{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.pdf-canvas-holder canvas{display:block;max-width:100%;max-height:100%;background:#fff;border-radius:6px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+.pdf-canvas-holder canvas:not([width]){display:none}
+.pdf-controls{display:flex;align-items:center;justify-content:center;gap:14px;color:var(--room-text);font-size:13px}
+.pdf-controls .icon-button{background:var(--room-control);color:var(--room-text);border:1px solid var(--room-border)}
+.pdf-controls .icon-button:disabled{opacity:.4;cursor:default}
+.pdf-message{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;text-align:center;color:var(--room-text);font-size:14px}
+.pdf-canvas-holder .pdf-message{position:absolute}
