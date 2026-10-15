@@ -73,13 +73,20 @@ class Moment(BaseModel):
     text: str
 
 
-class AskedQuestion(BaseModel):
+class Exchange(BaseModel):
+    """One exchange with an AI student: a question they asked, or their answer to the teacher's question."""
+
     event_id: str
-    kind: str
-    text: str
+    kind: str  # regular | misconception | capstone | answer
+    persona: dict | None
+    text: str  # what the student said
     asked_at_ms: int
-    answer_quote: str | None
+    level: int | None  # depth of a student's question: 1 clarify, 2 why/how, 3 what-if
+    teacher_question: str | None  # kind `answer`: the teacher's question the student answered
+    answer_quote: str | None  # what the teacher said next
     response_time_ms: int | None
+    satisfied: bool | None  # whether the student showed the answer landed
+    follow_up: str | None  # the student's one follow-up, when the first answer did not settle it
 
 
 class ReportOut(BaseModel):
@@ -94,4 +101,4 @@ class ReportOut(BaseModel):
     tip: str | None
     metrics: Metrics
     moments: list[Moment]
-    questions: list[AskedQuestion]
+    questions: list[Exchange]
