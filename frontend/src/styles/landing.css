@@ -27,7 +27,17 @@
 .landing-icon{width:44px;height:44px;border-radius:var(--r-md);display:grid;place-items:center;background:var(--blue-50);color:var(--blue-700);margin-bottom:16px}
 .landing-feature:nth-child(3n+2) .landing-icon{background:var(--orange-50);color:var(--orange-800)}
 .landing-feature:nth-child(3n) .landing-icon{background:var(--yellow-100);color:var(--orange-800)}
+.landing-about{display:grid;grid-template-columns:.85fr 1.15fr;gap:16px}
+.landing-vision,.landing-mission{padding:28px}
+.landing-vision{background:var(--yellow-100);border-color:var(--yellow-400)}
+.landing-vision .landing-icon{background:var(--surface);color:var(--orange-800)}
+.landing-vision p{font-family:var(--font-display);font-size:20px;font-weight:600;line-height:1.45;margin:0}
+.landing-mission .landing-icon{background:var(--orange-50);color:var(--orange-800)}
+.landing-mission ul{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.landing-mission li{display:flex;gap:10px;align-items:flex-start;color:var(--ink-2)}
+.landing-mission li svg{flex:none;margin-top:3px;color:var(--blue-600)}
 @media(max-width:960px){.landing-features{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.landing-about{grid-template-columns:1fr}}
 @media(max-width:860px){
   .landing-hero{grid-template-columns:1fr;padding-top:32px;gap:20px}
   .landing-hero-art{max-height:220px;order:-1}

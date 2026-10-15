@@ -1,4 +1,15 @@
-import { BookOpen, FileText, MessageCircleQuestion, Mic, Play, Presentation, ShieldCheck } from 'lucide-react';
+import {
+    BookOpen,
+    CircleCheck,
+    FileText,
+    HeartHandshake,
+    MessageCircleQuestion,
+    Mic,
+    Play,
+    Presentation,
+    ShieldCheck,
+    Target,
+} from 'lucide-react';
 import { APP_NAME, REFL_NAME } from '../lib/config.js';
 
 // The public page shown before login. Static: it calls no endpoint and reads no stored data.
@@ -38,6 +49,13 @@ const FEATURES = [
     },
 ];
 
+const MISSIONS = [
+    'Menghadirkan teman latihan mengajar yang bisa dipakai kapan saja, cukup dengan satu laptop.',
+    'Memberi masukan yang berpijak pada kata-kata guru sendiri, sebagai cermin, bukan penilaian.',
+    'Menghemat waktu guru: setiap ide langsung siap dipakai, tanpa persiapan atau bahan tambahan.',
+    'Menjaga data latihan tetap milik guru, tidak dibagikan kepada siapa pun.',
+];
+
 export function Landing({ onStart }) {
     return (
         <div className="landing">
@@ -47,6 +65,9 @@ export function Landing({ onStart }) {
                     <nav className="landing-links" aria-label="Navigasi halaman">
                         <button type="button" className="landing-link" onClick={() => scrollTo('fitur')}>
                             Fitur
+                        </button>
+                        <button type="button" className="landing-link" onClick={() => scrollTo('tentang')}>
+                            Tentang kami
                         </button>
                         <button type="button" className="landing-cta" onClick={onStart}>
                             Login
@@ -99,6 +120,42 @@ export function Landing({ onStart }) {
                                 <p>{body}</p>
                             </article>
                         ))}
+                    </div>
+                </section>
+
+                <section id="tentang" className="landing-section" aria-labelledby="tentang-title">
+                    <span className="landing-kicker">Tentang kami</span>
+                    <h2 id="tentang-title">Kesempatan berlatih yang sama untuk setiap guru</h2>
+                    <p className="landing-lead">
+                        Guru di sekolah dengan banyak sumber daya biasanya mendapat pendampingan dan observasi kelas.
+                        Banyak guru lain di seluruh Indonesia belum mendapat kesempatan yang sama. Kami, Tim BaSKom,
+                        membuat {APP_NAME} agar akses itu lebih merata.
+                    </p>
+                    <div className="landing-about">
+                        <article className="card landing-vision">
+                            <span className="landing-icon">
+                                <Target size={20} />
+                            </span>
+                            <h3>Visi</h3>
+                            <p>
+                                Setiap guru di Indonesia, di kota maupun di daerah, punya kesempatan yang sama untuk
+                                berlatih mengajar dan mendapat masukan yang bermakna.
+                            </p>
+                        </article>
+                        <article className="card landing-mission">
+                            <span className="landing-icon">
+                                <HeartHandshake size={20} />
+                            </span>
+                            <h3>Misi</h3>
+                            <ul>
+                                {MISSIONS.map((m) => (
+                                    <li key={m}>
+                                        <CircleCheck size={18} />
+                                        <span>{m}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </article>
                     </div>
                 </section>
             </main>
