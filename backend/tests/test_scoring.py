@@ -421,3 +421,21 @@ def test_time_on_a_worked_example_is_left_out_of_how_time_is_spread_over_slides(
     )  # fmt: skip
     assert scoring._computed(numbers, own_pages={3})["slide_balance"] == 1.0  # the two slides share their time evenly
     assert scoring._computed(numbers)["slide_balance"] < 0.5  # as an ordinary slide, page 3 would dominate
+
+
+def test_time_on_a_shared_screen_does_not_change_how_time_is_spread_over_slides():
+    slides = [{"page": 1, "ms": 80_000}, {"page": 2, "ms": 40_000}]
+    only_slides = LessonMetrics(duration_ms=120_000, words=500, words_per_minute=120, time_per_slide=slides)
+    with_sharing = LessonMetrics(duration_ms=360_000, words=500, words_per_minute=120, time_per_slide=slides, shared_ms=240_000)
+    balance = scoring._computed(only_slides)["slide_balance"]
+    assert balance < 1.0  # slide 1 took two thirds of the slide time
+    assert scoring._computed(with_sharing)["slide_balance"] == balance  # four minutes of sharing change nothing
+
+
+def test_a_report_for_a_lesson_with_a_shared_screen_lists_no_page_zero(db, taught):
+    db.add(SlideEvent(session_id=taught.id, page=1, t_ms=0))
+    db.add(SlideEvent(session_id=taught.id, page=0, t_ms=30_000))
+    db.add(SlideEvent(session_id=taught.id, page=1, t_ms=90_000))
+    db.commit()
+    report = scoring.build_report(db, taught.id)
+    assert all(slide["page"] != 0 for slide in report["metrics"]["time_per_slide"])

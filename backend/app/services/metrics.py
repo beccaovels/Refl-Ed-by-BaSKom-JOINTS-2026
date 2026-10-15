@@ -15,6 +15,7 @@ from app.services import rag
 
 PAUSE_MS = 2_000  # a gap this long between two audio pieces is a pause
 THINKING_TIME_MS = 3_000  # a pause this long after a question gives students time to think
+SHARED_SCREEN = 0  # the page number the room sends while the teacher shares a screen: no slide is on show
 READ_NGRAM = 5  # words in a row shared with the slide
 READ_RUN = 8  # only stretches at least this long count as reading; a definition read out is normal
 
@@ -41,7 +42,8 @@ class LessonMetrics:
     response_times_ms: list[int] = field(default_factory=list)  # time to start answering each AI student
     filler_count: int = 0
     reading_share: float | None = None  # None without slide text to compare with
-    time_per_slide: list[dict] = field(default_factory=list)
+    time_per_slide: list[dict] = field(default_factory=list)  # slides only: a shared screen is not a slide
+    shared_ms: int = 0  # time a screen was shared instead of a slide
     segment_wpm: list[int] = field(default_factory=list)  # pace of each audio piece, for pace variation
 
     def public(self) -> dict:
@@ -76,6 +78,7 @@ def compute(db: Session, session_id: str) -> LessonMetrics:
     )
 
     end_ms = max([s.end_ms for s in segments] + [t.t_ms for t in turns], default=0)
+    on_stage = time_per_slide([(t.page, t.t_ms) for t in turns], end_ms)
     spoken = [(s.start_ms, s.end_ms, s.text) for s in segments]
     metrics = LessonMetrics(
         duration_ms=end_ms,
@@ -86,7 +89,8 @@ def compute(db: Session, session_id: str) -> LessonMetrics:
         wait_times_ms=wait_times(spoken),
         response_times_ms=[q.answered_at_ms - q.asked_at_ms for q in asked if q.answered_at_ms is not None],
         filler_count=sum(len(FILLERS.findall(text.lower())) for _, _, text in spoken),
-        time_per_slide=time_per_slide([(t.page, t.t_ms) for t in turns], end_ms),
+        time_per_slide=[s for s in on_stage if s["page"] != SHARED_SCREEN],
+        shared_ms=sum(s["ms"] for s in on_stage if s["page"] == SHARED_SCREEN),
         segment_wpm=[pace([piece]) for piece in spoken if len(words(piece[2])) >= 5],
     )
     if session.material_id:
@@ -102,7 +106,9 @@ def compute(db: Session, session_id: str) -> LessonMetrics:
                 pages[page] = rag.page_text(db, session.material_id, page)
             return pages[page]
 
-        beside_slides = [(text, slide(page_at(start))) for start, _, text in spoken if page_at(start) not in own_working]
+        # Nor is speech while a screen is shared: the slide text is not on show, so there is nothing to read from.
+        not_slides = own_working | {SHARED_SCREEN}
+        beside_slides = [(text, slide(page_at(start))) for start, _, text in spoken if page_at(start) not in not_slides]
         # With no slide text at all there is nothing the teacher could have read from.
         if any(shown for _, shown in beside_slides):
             metrics.reading_share = reading_share(beside_slides)
