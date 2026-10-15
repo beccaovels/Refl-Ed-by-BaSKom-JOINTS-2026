@@ -121,8 +121,6 @@ CARDS: tuple[Card, ...] = (
     ),
 )
 
-FREE_CARDS = {"content_accuracy", "teaching_flow", "clarity", "engagement"}
-
 # Used when a profile does not name its own two Clarity parameters.
 DEFAULT_CLARITY = (
     {"title": "Menjelaskan alasannya", "look_for": "Guru menjelaskan mengapa, tidak hanya menyebutkan apa."},

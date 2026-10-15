@@ -29,7 +29,7 @@ Read this first if you are writing an endpoint, a page or the room. It says what
 | Voice and camera signals | Built in the browser: `vision/`, `startSignals()` | To build: the room calls `startSignals()` and forwards bins | Voice path tried in the harness; **camera never run on a real camera** |
 | "Suara & ekspresi" card | Built: `delivery.py` | — | Thresholds provisional |
 | Report: six cards 0–100, feedback, ideas, metrics, exchanges, worked examples | Built: `scoring.build_report` | To build: `/finish` in the background, `GET /sessions/{id}/report`, the Report page | Live report in 10–40 s |
-| Tiers (Free and Institutional) | Built: locked cards in the report | To build: the locked "Upgrade" cards | — |
+| Tiers | Removed: no card is locked, all six are scored for everyone | — | `locked` stays in the shape, always false |
 | History, Dashboard, Schedule | No AI | To build | — |
 
 ---

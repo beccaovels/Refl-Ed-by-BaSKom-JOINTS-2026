@@ -83,20 +83,15 @@ def test_feedback_rules_hold(db, taught):
         assert len(kinds) <= 2 and kinds == sorted(kinds, reverse=True)  # the strength comes first
 
 
-def test_free_tier_locks_pacing_and_delivery(db, taught):
-    cards = by_key(scoring.build_report(db, taught.id))
-    assert cards["pacing"]["locked"] and cards["pacing"]["score"] is None and cards["pacing"]["parameters"] == []
-    assert cards["delivery"]["locked"]
-    assert not cards["clarity"]["locked"] and cards["clarity"]["score"] is not None
-
-
-def test_institutional_tier_sees_pacing(db, taught):
+@pytest.mark.parametrize("tier", ["free", "institutional"])
+def test_no_card_is_behind_a_plan(db, taught, tier):
     user = db.get(User, taught.user_id)
-    user.tier = "institutional"
+    user.tier = tier
     db.add(user)
     db.commit()
     cards = by_key(scoring.build_report(db, taught.id))
-    assert cards["pacing"]["score"] is not None
+    assert not any(card["locked"] for card in cards.values())
+    assert cards["pacing"]["score"] is not None and cards["clarity"]["score"] is not None
     assert {p["key"] for p in cards["pacing"]["parameters"] if p["available"]} >= {"speaking_rate", "pauses"}
     # No signal bins yet: the card says so and does not count against the teacher.
     assert not cards["delivery"]["available"] and cards["delivery"]["unavailable_reason"]
@@ -217,7 +212,8 @@ def test_overall_is_the_weighted_mean_of_the_cards_shown(db, taught, monkeypatch
     real_llm(monkeypatch, Assessment(ratings=rate_all(4), feedback=[], summary="Terima kasih sudah berlatih.", ideas=[]))
     report = scoring.build_report(db, taught.id)
     shown = [d for d in report["dimensions"] if d["score"] is not None]
-    assert {d["key"] for d in shown} == {"content_accuracy", "teaching_flow", "clarity", "engagement"}
+    # Tempo is scored too; Suara & ekspresi has no voice data in this lesson, so it is left out, not counted against it
+    assert {d["key"] for d in shown} == {"content_accuracy", "teaching_flow", "clarity", "engagement", "pacing"}
     expected = round(sum(d["score"] * d["weight"] for d in shown) / sum(d["weight"] for d in shown))
     assert report["overall"]["score"] == expected
     assert sum(card.weight for card in CARDS) == 100

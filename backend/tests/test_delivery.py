@@ -95,9 +95,6 @@ def test_moments_never_name_an_emotion():
 
 
 def test_the_report_scores_the_card_voice_only_when_the_camera_is_off(db, lesson):
-    user = db.get(User, lesson.user_id)
-    user.tier = "institutional"
-    db.add(user)
     for seq, piece in enumerate(LESSON * 3):  # enough speech to be read
         start = seq * 12_000
         db.add(TranscriptSegment(session_id=lesson.id, seq=seq, start_ms=start, end_ms=start + 9_000, text=piece.text))
@@ -114,12 +111,14 @@ def test_the_report_scores_the_card_voice_only_when_the_camera_is_off(db, lesson
     assert report["moments"] and all(m["kind"] == "voice" for m in report["moments"])
 
 
-def test_a_locked_card_shows_no_moments(db, lesson):
+def test_the_card_is_scored_on_the_free_plan_too(db, lesson):
     for seq, piece in enumerate(LESSON * 3):
         start = seq * 12_000
         db.add(TranscriptSegment(session_id=lesson.id, seq=seq, start_ms=start, end_ms=start + 9_000, text=piece.text))
-    db.add(SignalBin(session_id=lesson.id, t_start_ms=0, pitch_variation=LIVELY_PITCH, volume=0.3))
+    for n in range(14):
+        db.add(SignalBin(session_id=lesson.id, t_start_ms=n * 10_000, pitch_variation=LIVELY_PITCH, volume=0.3))
     db.commit()
-    report = scoring.build_report(db, lesson.id)  # free tier
-    assert next(d for d in report["dimensions"] if d["key"] == "delivery")["locked"]
-    assert report["moments"] == []
+    report = scoring.build_report(db, lesson.id)  # the default user is on the free plan
+    card = next(d for d in report["dimensions"] if d["key"] == "delivery")
+    assert not card["locked"] and card["available"] and card["score"] is not None
+    assert report["moments"]

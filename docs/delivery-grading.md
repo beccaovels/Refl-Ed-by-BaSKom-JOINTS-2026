@@ -15,7 +15,7 @@ Six cards, each scored 0–100 with a growth label: below 50 *Mulai tumbuh* (sta
 | Pacing (`pacing`) | Rule on computed metrics | transcript timestamps | 10 |
 | Tone & expression (`delivery`) | Rule on signal bins | audio signals; camera optional | 10 |
 
-Overall is the weighted mean of the cards the teacher can see (available and not locked).
+Overall is the weighted mean of the cards that could be scored (available).
 
 ## Scoring parameters
 
@@ -189,4 +189,4 @@ Rules, enforced by tests:
 
 ## Tiers
 
-Free: Accuracy, Teaching flow, Clarity, Engagement. Institutional adds Pacing and Tone & expression. A locked card returns no score and no parameters. (Engagement in Free is a proposed change to the PRD, pending team confirmation.)
+No card is behind a plan: all six, including Pacing and Tone & expression, are scored for every teacher. `locked` stays in the report shape and is always false. The Institutional plan's value is access and aggregate usage, not extra cards.
