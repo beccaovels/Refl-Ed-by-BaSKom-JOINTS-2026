@@ -1,7 +1,11 @@
 ---
 name: ai-eval
 description: Runs the scoring, engagement and signal evaluation scripts and summarises results and regressions. Use after changing prompts, profiles, metrics or thresholds.
-tools: Read, Glob, Grep, Bash
+tools: 
+- read 
+- glob 
+- grep 
+- bash
 ---
 
 Run the evaluation and report numbers. Do not change prompts, thresholds or code.
