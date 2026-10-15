@@ -56,7 +56,25 @@ Every card is 100 points split over named parameters. The code is `backend/app/s
 | | Gestures while explaining | 10 | Camera bins |
 | | Stable posture, in frame | 5 | Camera bins |
 
-Target bands are provisional until tuned on our labelled clips: speaking rate 100–160 words per minute; one teacher question every two minutes or more; 1–6 pauses per minute; reading share up to 15%; no single slide over half the lesson.
+### Where the target bands come from
+
+Only thinking time rests on published research. The rest are starting values, provisional until tuned on our labelled clips, and are never presented as research findings.
+
+| Limit | Value | Basis |
+|---|---|---|
+| Thinking time after a question | 3 s | Rowe, "Wait Time: Slowing Down May Be a Way of Speeding Up!", *Journal of Teacher Education* 37(1), 1986, pp. 43–50: teachers typically wait about 1 s; at around 3 s student answers get longer and more students take part |
+| Speaking rate | 100–160 words per minute | Adapted from English lecture studies (most lectures 110–190 wpm; listeners prefer about 134–147). Indonesian words are longer, about 2.6 syllables on average, so the same speed is fewer words per minute. No Indonesian classroom measurement found |
+| Teacher questions | one every 2 minutes or more | Inside the range studies report (about 9–10 per class hour up to 2–3 per minute). No agreed norm |
+| Pauses | 1–6 per minute | Ours |
+| Pace variation | 15% spread between pieces | Ours |
+| Reading share | full marks up to 15%, lowest at 60% | Ours |
+| Longest slide | full marks up to half the lesson | Ours |
+
+Links and open questions: `docs/todo.md`.
+
+### How a teacher's question is recognised
+
+A sentence counts as a question to the class when it ends with "?", or starts with a question word or class-directed opener (apa, siapa, kapan, berapa, di mana, kenapa, mengapa, bagaimana, gimana, apakah, bisakah, "ada yang tahu", "menurut kalian", and similar; the list is `QUESTION_OPENERS` in `metrics.py`). Whisper is also given a punctuated example prompt so it is more likely to write the "?". Live, the LLM call that writes a student's answer confirms the sentence really was a question. Detection accuracy is not measured yet.
 
 ## Engagement
 
