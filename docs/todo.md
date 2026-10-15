@@ -15,7 +15,8 @@ Kept by the AI + PM lead. Last updated Mon 12 Oct. Three parts: what is left to 
 | AI students answer the teacher's question; "satisfied" signal | Done on the backend; the room has to render it |
 | Question detection that does not need Whisper's "?" | Done; accuracy not measured |
 | Material retrieval | Done with word overlap; embeddings not built |
-| Vision and voice signals, Tone & expression card | To do |
+| Voice and camera signal code (browser) | Written, typechecked, unit-tested. **Not yet run with a real camera or microphone** |
+| Tone & expression card, scored from signal bins | Done; thresholds provisional |
 | Evaluation numbers in `docs/evaluation.md` | To do, needs clips |
 | Profiles other than Matematika X | To do, data files only |
 
@@ -48,6 +49,12 @@ Matematika X demo chapter: **Bab 7, Peluang**.
 ### Material retrieval (built with word overlap)
 - Questions see the slide on screen plus the two other chunks of the PDF closest to what is being said. Accuracy in the report is read against the pages the teacher showed.
 - "Closest" is shared words, weighted so rare words count more. It is not embeddings. Say "retrieval" in the pitch, not "embeddings", unless they get built.
+
+### Voice and camera signals (built 13 Oct, not run live)
+- `frontend/src/features/simulator/vision/`: pitch and loudness from the microphone, face and body from MediaPipe, 3 s calibration, 10 s bins. One entry point, `startSignals()`. Camera off, camera refused and models failing to load all fall back to voice only.
+- `backend/app/services/delivery.py` scores the Tone & expression card from the bins and lists the lesson's liveliest moments.
+- `ml/vision-harness/`: typecheck, 23 unit tests, and a page to try it on a webcam, the microphone or a recorded clip.
+- Left, in order: (1) open the harness page and confirm the camera path works at all; (2) record and label the paired clips; (3) tune the thresholds; (4) the room calls `startSignals()` and forwards the bins.
 
 ### Needed from people
 | What | Who | For |
@@ -115,6 +122,27 @@ The prompts forbid it, since the tool does not know the teacher's gender. The mo
 
 ### 3.18 A satisfied student is a generous judge
 The reaction prompt tells the student to accept any real attempt at an answer, so the signal means "the teacher responded to the question", not "the answer was correct". Correctness is scored in the report under Accuracy.
+
+### 3.19 The camera code has never seen a camera
+The maths is unit-tested with made-up numbers (head turn, slouch, hand speed, pitch of a pure tone). The part that talks to MediaPipe and the microphone has only been typechecked and built. Until someone runs the harness page, treat the camera path as unverified. The fallback in `docs/plan.md` stands: run it on the recorded video after the session and call it post-session delivery analysis.
+
+### 3.20 MediaPipe runs on the main thread, not in a web worker
+`docs/plan.md` says a web worker. It reads about 5 frames a second and drops to 2 when a frame takes over 150 ms, which keeps the cost low, but it is not a worker. MediaPipe's loader does not work in the module workers Vite makes in development, and there was no browser to test a workaround in. Say "in the browser", not "in a web worker", unless this changes.
+
+### 3.21 The models are downloaded from a CDN on first use
+About 10 MB (face and pose models plus the wasm runtime) from Google's and jsDelivr's servers. No picture leaves the browser, but the first lesson with the camera on needs an internet connection for this, on top of the speech-to-text and LLM calls. They could be bundled into the frontend's `public/` folder.
+
+### 3.22 Every Tone & expression threshold is a guess until the clips exist
+2 semitones of pitch spread for a lively voice, 0.12 of face movement, the hand-speed limit, the dark-picture limit: all starting values. Rough support for the pitch figure only: monotone speech is usually described as under about 1.5 semitones of spread and expressive speech as 3 or more; we have not sourced this. No agreement numbers yet.
+
+### 3.23 Pitch detection is simple
+Autocorrelation on 43 ms of sound, twenty times a second. It handles a clean voice; background noise, music or two people talking will produce wrong pitches. The spread uses the middle 90% of readings to soften this. Not tested on real speech.
+
+### 3.24 Ten-second bins are coarse for five-second moments
+"Reacted when a student asked" is read from the whole bin containing the start of the answer, not from the five seconds after the question. If that proves too blunt on real clips, the bin needs a peak value added, which changes the contract.
+
+### 3.25 The harness packages have known vulnerabilities
+`npm install` reports 6 (2 critical) in development tools (the Vite 5 and Vitest 2 lines). It is a local developer page, never deployed. The frontend proper should start on current versions.
 
 ## 4. Where the scoring limits come from
 

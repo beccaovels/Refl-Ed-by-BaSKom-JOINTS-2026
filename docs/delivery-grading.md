@@ -98,6 +98,19 @@ Voice and face together, so the card works voice-only with the camera off. The a
 - **Smiles only ever add.** A smile counts as a warm moment; not smiling is never a deduction while face and voice are alive in other ways. Only a sustained flat voice and still face lowers the score.
 - **Described, never labelled.** "Pada 00:05 suara dan wajah Anda paling hidup saat menyapa murid", never an emotion word.
 
+How each parameter is computed from the 10-second bins (`backend/app/services/delivery.py`). "Key moments" are the greeting, each question the teacher asks the class, and each answer to a student. All limits are provisional until tuned on our labelled flat-versus-lively clips.
+
+| Parameter | Computed as | Full marks when |
+|---|---|---|
+| Vocal liveliness | Share of bins with speech whose pitch spread is 2 semitones or more | 40% of bins or more |
+| Emphasis at key moments | Share of key moments whose bin is lively, or clearly above the teacher's own usual pitch spread or loudness | Half of the key moments or more |
+| Responsiveness | Per student question: answered within 5 s, and voice or face lively while answering | Both, for every question |
+| Facial liveliness and warm moments | The better of: share of camera bins where the face moved 0.12 or more from neutral; share of key moments where it did | 30% of bins, or half of the key moments |
+| Gestures | Share of camera bins with the hands moving | A quarter of bins or more; lowered a little only when the hands move hard through 90% of the lesson |
+| Posture, in frame | Average of upright × face found | 70% or more |
+
+The face is read as four movements from MediaPipe blendshapes: smile, brows up, brows down, cheeks. Each counts the same way, as movement from the teacher's calibrated neutral face, so raised brows on a serious face score like a smile. Jaw movement is left out, because talking alone would look expressive. Pitch is found by autocorrelation and its spread is in semitones, so low and high voices are comparable.
+
 | Signal | Good | Lowers it | Never penalised |
 |---|---|---|---|
 | In frame | In the picture most of the lesson | Long stretches fully out of frame | Lighting, camera quality, background; reading the material; where the eyes point |
