@@ -4,6 +4,7 @@ import * as api from './lib/api.js';
 import { Context } from './context/AppContext.js';
 import { Shell } from './components/Shell.jsx';
 import { Login } from './pages/Login.jsx';
+import { Landing } from './pages/Landing.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 import { Schedule } from './pages/Schedule.jsx';
 import { HistoryPage } from './pages/History.jsx';
@@ -18,6 +19,7 @@ export function App() {
     const [user, setUser] = useState(api.getUser);
     const [store, setStore] = useState(() => readStore(api.getUser()));
     const [storageError, setStorageError] = useState(false);
+    const [loginOpen, setLoginOpen] = useState(false); // the landing page comes first, until its Login button is pressed
     useEffect(() => {
         if (!user) return;
         try {
@@ -27,6 +29,7 @@ export function App() {
             setStorageError(true);
         }
     }, [store, user]);
+    if (!user && !loginOpen) return <Landing onStart={() => setLoginOpen(true)} />;
     if (!user)
         return (
             <Login
