@@ -4,33 +4,81 @@ For developers writing scoring code and prompts, and for UIUX designing the Repo
 
 ## Dimensions
 
-| Dimension | Scored by | Needs |
-|---|---|---|
-| Content accuracy | LLM against the teacher's own material, quoted | transcript (+ PDF) |
-| Teaching flow | LLM, quoted: is there an apply moment and a reflective close? | transcript |
-| Clarity | LLM, quoted, anchors from the subject profile; new terms explained when first used | transcript |
-| Engagement | Mix of computed and LLM, see below | transcript (+ PDF) |
-| Pacing | Rule on computed metrics | transcript timestamps |
-| On-camera presence | Rule on signal bins | camera (optional) |
+Six cards, each scored 0–100 with a growth label: below 50 *Mulai tumbuh* (starting), 50–79 *Berkembang* (developing), 80 and up *Kuat* (strong). A card that cannot be measured is "unavailable" and does not lower the overall score.
 
-Scale 1–5 with a growth label: starting, developing, strong. A dimension that cannot be measured is "unavailable" and does not lower the overall score.
+| Card (key) | Scored by | Needs | Weight in overall |
+|---|---|---|---|
+| Accuracy (`content_accuracy`) | LLM against the teacher's own material, quoted | transcript (+ PDF) | 20 |
+| Teaching flow (`teaching_flow`) | LLM, quoted | transcript | 15 |
+| Clarity (`clarity`) | LLM, quoted; two parameters come from the subject profile | transcript | 20 |
+| Engagement (`engagement`) | Mix of computed and LLM | transcript (+ PDF) | 25 |
+| Pacing (`pacing`) | Rule on computed metrics | transcript timestamps | 10 |
+| Tone & expression (`delivery`) | Rule on signal bins | audio signals; camera optional | 10 |
+
+Overall is the weighted mean of the cards the teacher can see (available and not locked).
+
+## Scoring parameters
+
+Every card is 100 points split over named parameters. The code is `backend/app/services/rubric.py`; keep this table and that file the same.
+
+- An **LLM** parameter is judged on a 1–5 scale (1 not seen, 2 once, 3 in part of the lesson, 4 clear and repeated, 5 clear and consistent) and earns level ÷ 5 × weight. A 4 or 5 needs a quote that is really in the transcript; without one it drops to 3.
+- A **computed** parameter uses a target band: full marks anywhere inside the comfortable range, sliding down only toward the extremes. Its lowest value earns what level 1 earns, so both kinds share one scale.
+- The LLM never sets a card score. It gives levels; code does the arithmetic.
+- A parameter that could not be measured (no PDF, no student question answered, camera off) gives its weight to the rest of its card.
+
+| Card | Parameter | Points | How |
+|---|---|---|---|
+| Accuracy | Statements agree with the teacher's own material | 50 | LLM |
+| | Terms, formulas, facts used correctly | 30 | LLM |
+| | Student questions answered correctly | 20 | LLM; only when a student question was answered |
+| Teaching flow | Goal said aloud early | 20 | LLM |
+| | Links to what students already know | 15 | LLM |
+| | Order builds up: understand → apply | 30 | LLM |
+| | A worked example or apply moment | 20 | LLM |
+| | Reflective close or recap | 15 | LLM |
+| Clarity | Subject parameter A (maths: explains why the rule works) | 30 | LLM, from the profile |
+| | New terms explained when first used | 25 | LLM |
+| | Step by step, one idea at a time | 25 | LLM |
+| | Subject parameter B (maths: more than one representation) | 20 | LLM, from the profile |
+| Engagement | Hook that creates curiosity (first 90 s) | 15 | LLM |
+| | Examples, analogies, daily-life links | 25 | LLM |
+| | Invites students in: questions asked + thinking time | 25 | Computed |
+| | Builds on student questions | 20 | LLM; only when a student question was answered |
+| | Own words vs reading the slide | 15 | Computed; only with a PDF |
+| Pacing | Speaking rate in the comfortable band | 40 | Computed |
+| | Pauses and thinking time | 25 | Computed |
+| | Pace varies between parts | 20 | Computed |
+| | Time spread across slides | 15 | Computed; only with two or more slides |
+| Tone & expression | Vocal liveliness | 25 | Audio bins |
+| | Emphasis at key moments | 20 | Audio bins × transcript |
+| | Responsiveness to student questions | 25 | Voice + face in the 5 s after |
+| | Facial liveliness and warm moments | 15 | Camera bins |
+| | Gestures while explaining | 10 | Camera bins |
+| | Stable posture, in frame | 5 | Camera bins |
+
+Target bands are provisional until tuned on our labelled clips: speaking rate 100–160 words per minute; one teacher question every two minutes or more; 1–6 pauses per minute; reading share up to 15%; no single slide over half the lesson.
 
 ## Engagement
 
+The headline card. What each of its parameters looks for:
+
 | Parameter | Looks for | Measured |
 |---|---|---|
-| Purpose | The learning goal is said aloud early | LLM, quoted |
-| Linking back | A reference to what students already know | LLM, quoted |
-| Hook | An opening that creates curiosity (*pertanyaan pemantik*, a short story or case) | LLM, quoted, first 60–90 s |
-| Own words vs reading | Explaining instead of reading out | Computed: share of speech near word-for-word from the slide on screen. Only long sustained stretches count. Unavailable without a PDF |
-| Examples and application | Concrete examples, analogies, daily life, local context | LLM, each one quoted |
-| Inviting students in | Questions, checking understanding, thinking time | Computed: questions asked; pause of 3 s or more after each |
-| Building on student questions | Answers the AI student and extends with an example | LLM on the answer + computed response time |
-| Voice variation | Emphasis at key points | Computed pitch and volume variation |
+| Hook | An opening that creates curiosity (*pertanyaan pemantik*, a short story or case) | LLM, quoted, first 90 s |
+| Examples and application | Concrete examples, analogies, daily life, local context | LLM, quoted |
+| Inviting students in | Questions, checking understanding, thinking time | Computed: questions asked per minute; share followed by a pause of 3 s or more |
+| Building on student questions | Answers the AI student and extends with an example | LLM on the answer |
+| Own words vs reading | Explaining instead of reading out | Computed: share of speech near word-for-word from the slide on screen. Only runs of 8 words or more count. Unavailable without a PDF |
 
-## On-camera presence
+"Purpose" and "Linking back" are scored under Teaching flow, and voice under Tone & expression, so nothing is counted twice.
 
-Weights: responsiveness to student questions 40%, gestures 25%, posture 15%, expression variation 10%, in frame 10%.
+## Tone & expression
+
+Voice and face together, so the card works voice-only with the camera off. The aim is to tell an engaging delivery from a flat one without asking for non-stop cheerfulness: what counts is that voice and face come alive at the moments that matter. Every signal is measured against the teacher's own 3 s calibration, so a naturally quiet voice or a naturally serious face is not marked down.
+
+- **Moments, not duration.** Credit comes from lively moments at the right times: the greeting, the key idea, a question to students, answering a student.
+- **Smiles only ever add.** A smile counts as a warm moment; not smiling is never a deduction while face and voice are alive in other ways. Only a sustained flat voice and still face lowers the score.
+- **Described, never labelled.** "Pada 00:05 suara dan wajah Anda paling hidup saat menyapa murid", never an emotion word.
 
 | Signal | Good | Lowers it | Never penalised |
 |---|---|---|---|
@@ -64,4 +112,4 @@ Rules, enforced by tests:
 
 ## Tiers
 
-Free: Content accuracy, Teaching flow, Clarity, Engagement. Institutional adds Pacing and On-camera presence. (Engagement in Free is a proposed change to the PRD, pending team confirmation.)
+Free: Accuracy, Teaching flow, Clarity, Engagement. Institutional adds Pacing and Tone & expression. A locked card returns no score and no parameters. (Engagement in Free is a proposed change to the PRD, pending team confirmation.)
