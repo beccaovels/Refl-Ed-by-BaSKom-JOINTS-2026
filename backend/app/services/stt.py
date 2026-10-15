@@ -33,6 +33,14 @@ HALLUCINATIONS = {
     "sampai jumpa di video selanjutnya",
 }
 
+# Whisper copies the style of its prompt, not instructions in it. This shows it punctuated
+# classroom speech with question marks, so a teacher's questions are more likely to end in "?".
+# It is a nudge, not a guarantee; metrics.py also recognises questions by their opening words.
+STYLE_PROMPT = (
+    "Baik, anak-anak, kita lanjutkan pelajaran hari ini. Ada yang tahu kenapa hasilnya begitu? "
+    "Coba perhatikan contoh berikut. Menurut kalian, berapa nilainya?"
+)
+
 # STT_PROVIDER=fake: no key, no network. For building the room without quota.
 _fake_lines = itertools.cycle(
     [
@@ -75,7 +83,13 @@ def _request(provider: str, model: str, wav_bytes: bytes, language: str) -> str:
         ENDPOINTS[provider],
         headers={"Authorization": f"Bearer {key}"},
         files={"file": ("chunk.wav", wav_bytes, "audio/wav")},
-        data={"model": model, "language": language, "response_format": "verbose_json", "temperature": "0"},
+        data={
+            "model": model,
+            "language": language,
+            "response_format": "verbose_json",
+            "temperature": "0",
+            "prompt": STYLE_PROMPT,
+        },
         timeout=TIMEOUT_S,
     )
     response.raise_for_status()
@@ -91,5 +105,8 @@ def clean(payload: dict) -> str:
     else:
         text = (payload.get("text") or "").strip()
     if text.lower().strip(" .!?") in HALLUCINATIONS:
+        return ""
+    # On silence Whisper sometimes repeats its own prompt back.
+    if len(text) > 15 and text.lower().strip(" .!?") in STYLE_PROMPT.lower():
         return ""
     return text

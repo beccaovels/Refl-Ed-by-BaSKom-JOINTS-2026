@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 from sqlmodel import Session, select
 
-from app.models import Question, SlideEvent, TeachingSession, TranscriptSegment
+from app.models import Question, SlideEvent, TeachingSession, TranscriptSegment, WorkedExample
 from app.services import rag
 
 PAUSE_MS = 2_000  # a gap this long between two audio pieces is a pause
@@ -19,8 +19,15 @@ READ_NGRAM = 5  # words in a row shared with the slide
 READ_RUN = 8  # only stretches at least this long count as reading; a definition read out is normal
 
 FILLERS = re.compile(r"\b(e{2,}|em{2,}|hm+|anu|apa ya|gitu)\b")
-# Sentences that are questions even when the transcript has no question mark.
-QUESTION_OPENERS = ("apakah", "siapakah", "ada yang tahu", "ada yang bisa", "siapa yang", "kenapa", "mengapa", "bagaimana")
+# Sentences that are questions even when the transcript has no question mark, so the
+# count does not depend on Whisper's punctuation. A sentence counts when it starts with one of these.
+QUESTION_OPENERS = (
+    "apa", "apakah", "siapa", "siapakah", "kapan", "berapa", "berapakah", "di mana", "dimana", "manakah",
+    "kenapa", "mengapa", "bagaimana", "bagaimanakah", "gimana",
+    "bisakah", "adakah", "bukankah", "benarkah", "mungkinkah", "dapatkah", "bolehkah",
+    "ada yang tahu", "ada yang bisa", "ada yang ingat", "ada yang mau", "coba siapa", "menurut kalian", "kira-kira",
+)  # fmt: skip
+_OPENER = re.compile(r"^(" + "|".join(re.escape(opener) for opener in QUESTION_OPENERS) + r")\b")
 
 
 @dataclass
@@ -33,7 +40,7 @@ class LessonMetrics:
     wait_times_ms: list[int] = field(default_factory=list)  # pause after each teacher question
     response_times_ms: list[int] = field(default_factory=list)  # time to start answering each AI student
     filler_count: int = 0
-    reading_share: float | None = None  # None without material
+    reading_share: float | None = None  # None without slide text to compare with
     time_per_slide: list[dict] = field(default_factory=list)
     segment_wpm: list[int] = field(default_factory=list)  # pace of each audio piece, for pace variation
 
@@ -59,7 +66,14 @@ def compute(db: Session, session_id: str) -> LessonMetrics:
         db.exec(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id).order_by(TranscriptSegment.seq))
     )
     turns = list(db.exec(select(SlideEvent).where(SlideEvent.session_id == session_id).order_by(SlideEvent.t_ms)))
-    asked = list(db.exec(select(Question).where(Question.session_id == session_id, Question.kind != "nudge")))
+    # Only what a student asked the teacher: not nudges, and not a student's reply to the teacher.
+    asked = list(
+        db.exec(
+            select(Question).where(
+                Question.session_id == session_id, Question.kind.in_(("regular", "misconception", "capstone", "reaction"))
+            )
+        )
+    )
 
     end_ms = max([s.end_ms for s in segments] + [t.t_ms for t in turns], default=0)
     spoken = [(s.start_ms, s.end_ms, s.text) for s in segments]
@@ -77,14 +91,21 @@ def compute(db: Session, session_id: str) -> LessonMetrics:
     )
     if session.material_id:
         pages: dict[int, str] = {}
+        # A photo of the teacher's own working is a page too. Walking through it aloud is not reading a slide.
+        own_working = set(db.exec(select(WorkedExample.page).where(WorkedExample.material_id == session.material_id)))
 
-        def slide_at(t_ms: int) -> str:
-            page = next((t.page for t in reversed(turns) if t.t_ms <= t_ms), 1)
+        def page_at(t_ms: int) -> int:
+            return next((t.page for t in reversed(turns) if t.t_ms <= t_ms), 1)
+
+        def slide(page: int) -> str:
             if page not in pages:
                 pages[page] = rag.page_text(db, session.material_id, page)
             return pages[page]
 
-        metrics.reading_share = reading_share([(text, slide_at(start)) for start, _, text in spoken])
+        beside_slides = [(text, slide(page_at(start))) for start, _, text in spoken if page_at(start) not in own_working]
+        # With no slide text at all there is nothing the teacher could have read from.
+        if any(shown for _, shown in beside_slides):
+            metrics.reading_share = reading_share(beside_slides)
     return metrics
 
 
@@ -110,17 +131,24 @@ def teacher_questions(text: str) -> list[str]:
     found = []
     for sentence in re.findall(r"[^.!?]+[.!?]?", text):
         sentence = sentence.strip()
-        if sentence.endswith("?") or sentence.lower().startswith(QUESTION_OPENERS):
+        if sentence.endswith("?") or _OPENER.match(sentence.lower()):
             found.append(sentence)
     return found
+
+
+def closing_question(text: str) -> str | None:
+    """The question a piece of speech ends with, or None when its last sentence is not one."""
+    sentences = [s.strip() for s in re.findall(r"[^.!?]+[.!?]?", text) if s.strip()]
+    if sentences and teacher_questions(sentences[-1]):
+        return sentences[-1]
+    return None
 
 
 def wait_times(spoken: list[tuple[int, int, str]]) -> list[int]:
     """The silence after each piece of speech that ends with a question."""
     waits = []
     for (_, end, text), (next_start, _, _) in zip(spoken, spoken[1:]):
-        sentences = [s for s in re.findall(r"[^.!?]+[.!?]?", text) if s.strip()]
-        if sentences and teacher_questions(sentences[-1]):
+        if closing_question(text):
             waits.append(max(next_start - end, 0))
     return waits
 
