@@ -1,5 +1,9 @@
 """Material lookup: split the teacher's PDF into chunks and find the ones closest to the transcript."""
 
+import math
+import re
+from collections import Counter
+
 import pymupdf
 from sqlmodel import Session, delete, select
 
@@ -34,6 +38,34 @@ def page_text(db: Session, material_id: str, page: int) -> str:
         .order_by(MaterialChunk.order)
     ).all()
     return "\n".join(chunk.text for chunk in chunks)
+
+
+def closest_chunks(db: Session, material_id: str, text: str, k: int = 3, skip_page: int | None = None) -> list[MaterialChunk]:
+    """The `k` chunks of the material that share the most words with `text`.
+
+    Words that appear in many chunks count for less, so "adalah" matters less
+    than "diskriminan". Plain word overlap for now; embeddings can replace the
+    scoring without changing callers.
+    """
+    chunks = db.exec(select(MaterialChunk).where(MaterialChunk.material_id == material_id)).all()
+    if not chunks:
+        return []
+    chunk_words = [set(_words(chunk.text)) for chunk in chunks]
+    seen_in = Counter(word for words in chunk_words for word in words)
+    wanted = set(_words(text))
+    scored = []
+    for chunk, words in zip(chunks, chunk_words):
+        if chunk.page == skip_page:
+            continue
+        score = sum(math.log(1 + len(chunks) / seen_in[word]) for word in wanted & words)
+        if score > 0:
+            scored.append((score / math.sqrt(len(words) or 1), chunk))
+    scored.sort(key=lambda pair: -pair[0])
+    return [chunk for _, chunk in scored[:k]]
+
+
+def _words(text: str) -> list[str]:
+    return [word for word in re.findall(r"[^\W_]+", text.lower()) if len(word) > 2]
 
 
 def _chunks(page) -> list[str]:
