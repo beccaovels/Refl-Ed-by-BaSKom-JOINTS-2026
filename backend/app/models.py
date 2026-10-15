@@ -84,12 +84,15 @@ class Question(SQLModel, table=True):
     __tablename__ = "questions"
     id: str = Field(default_factory=new_id, primary_key=True)
     session_id: str = Field(foreign_key="sessions.id", index=True)
-    kind: str  # regular | misconception | capstone | nudge
+    kind: str  # regular | misconception | capstone | nudge | answer | reaction
     persona: Optional[str] = None
     text: str
     asked_at_ms: int
     answered_at_ms: Optional[int] = None
     refers_to_ms: Optional[int] = None
+    level: Optional[int] = None  # depth of a student question: 1 clarify, 2 why/how, 3 what-if
+    reply_to: Optional[str] = None  # reaction: id of the question it reacts to
+    satisfied: Optional[bool] = None  # reaction: whether the teacher's answer settled the question
 
 
 class SignalBin(SQLModel, table=True):
