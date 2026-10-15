@@ -171,6 +171,25 @@ def test_page_turns_are_stored_once(client, room, engine):
         assert [(t.page, t.t_ms) for t in db.exec(select(SlideEvent).order_by(SlideEvent.t_ms))] == [(1, 0), (2, 30_000)]
 
 
+def test_page_zero_means_a_shared_screen_and_is_stored_with_or_without_a_pdf(client, room, login, engine):
+    url = f"/api/sessions/{room['id']}/slides"  # a lesson without a PDF
+    assert client.post(url, json={"page": 0, "t_ms": 1_000}, headers=room["headers"]).status_code == 204
+    me = login("Pak Budi", "budi@example.com")
+    pdf = pymupdf.open()
+    pdf.new_page()
+    material = client.post("/api/materials", files={"file": ("satu.pdf", pdf.tobytes(), "application/pdf")}, headers=me).json()
+    body = {"profile_id": "matematika-fase-e", "class_name": "X-1", "subject": "Matematika", "chapter": "Peluang",
+            "material_id": material["id"]}  # fmt: skip
+    session = client.post("/api/sessions", json=body, headers=me).json()
+    url2 = f"/api/sessions/{session['id']}/slides"
+    for turn in ({"page": 1, "t_ms": 0}, {"page": 0, "t_ms": 5_000}, {"page": 1, "t_ms": 9_000}):  # pdf, share, back to the pdf
+        assert client.post(url2, json=turn, headers=me).status_code == 204
+    assert client.post(url2, json={"page": -1, "t_ms": 0}, headers=me).status_code == 422
+    with Session(engine) as db:
+        stored = db.exec(select(SlideEvent).where(SlideEvent.session_id == session["id"]).order_by(SlideEvent.t_ms)).all()
+        assert [(t.page, t.t_ms) for t in stored] == [(1, 0), (0, 5_000), (1, 9_000)]
+
+
 def test_invalid_page_turns_are_422(client, login):
     me = login()
     pdf = pymupdf.open()
@@ -182,7 +201,7 @@ def test_invalid_page_turns_are_422(client, login):
             "material_id": material["id"]}  # fmt: skip
     session = client.post("/api/sessions", json=body, headers=me).json()
     url = f"/api/sessions/{session['id']}/slides"
-    assert client.post(url, json={"page": 0, "t_ms": 0}, headers=me).status_code == 422
+    assert client.post(url, json={"page": -1, "t_ms": 0}, headers=me).status_code == 422
     assert client.post(url, json={"page": 2, "t_ms": 0}, headers=me).status_code == 422  # the PDF has one page
 
 
