@@ -20,7 +20,8 @@ const RESIZE_DELAY_MS = 150;
 
 const typing = (el) => el && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable);
 
-export default function PdfStage({ materialId, name, initialPage = 1, onPageChange }) {
+// `active` is false while the stage shows a shared screen instead: the viewer stays loaded, but ignores the keys.
+export default function PdfStage({ materialId, name, initialPage = 1, onPageChange, active = true }) {
     const [pdf, setPdf] = useState(null);
     const [status, setStatus] = useState('loading'); // loading | ready | error
     const [page, setPage] = useState(initialPage);
@@ -144,7 +145,7 @@ export default function PdfStage({ materialId, name, initialPage = 1, onPageChan
     // Arrow keys and PageUp/PageDown, unless the teacher is typing or a dialog is open.
     useEffect(() => {
         const onKey = (e) => {
-            if (e.repeat || e.altKey || e.ctrlKey || e.metaKey || typing(document.activeElement) || document.querySelector('[role="dialog"],[role="alertdialog"]'))
+            if (!active || e.repeat || e.altKey || e.ctrlKey || e.metaKey || typing(document.activeElement) || document.querySelector('[role="dialog"],[role="alertdialog"]'))
                 return;
             if (e.key === 'ArrowRight' || e.key === 'PageDown')
                 go(page + 1);
@@ -156,7 +157,7 @@ export default function PdfStage({ materialId, name, initialPage = 1, onPageChan
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [go, page]);
+    }, [go, page, active]);
 
     if (status === 'error')
         return (<div className="pdf-stage pdf-message" role="status">

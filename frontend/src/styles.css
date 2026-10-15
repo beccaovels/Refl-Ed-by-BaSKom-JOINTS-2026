@@ -596,3 +596,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .pdf-controls .icon-button:disabled{opacity:.4;cursor:default}
 .pdf-message{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;text-align:center;color:var(--room-text);font-size:14px}
 .pdf-canvas-holder .pdf-message{position:absolute}
+
+/* Mode B: a shared screen on the stage */
+.share-stage{flex-direction:column;gap:10px;padding:0 22px}
+.share-banner{display:flex;align-items:center;gap:8px;align-self:center;max-width:100%;padding:7px 12px;border-radius:999px;background:var(--room-control);border:1px solid var(--room-border);color:var(--room-text);font-size:12px}
+.share-banner svg{flex:none}
+.share-video-holder{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.share-video-holder video{display:block;max-width:100%;max-height:100%;object-fit:contain;background:#000;border-radius:6px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+.share-stop{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;background:var(--room-control);color:var(--room-text);border:1px solid var(--room-border);cursor:pointer;font-size:13px;font-weight:600}
+.control.control-on{background:var(--blue);border-color:var(--blue)}
