@@ -81,7 +81,9 @@ export function startRecorder(stream, { sessionId, startSeq = 0, offsetMs = 0, o
     let sending = false;
 
     function enqueue(startMs, endMs, chunks) {
-        queue.push({ seq: seq++, startMs, endMs: Math.max(endMs, startMs), wav: encodeWav(chunks, ctx.sampleRate) });
+        // the backend wants whole milliseconds; performance.now() has fractions
+        const start = Math.max(0, Math.round(startMs));
+        queue.push({ seq: seq++, startMs: start, endMs: Math.max(start, Math.round(endMs)), wav: encodeWav(chunks, ctx.sampleRate) });
         drain();
     }
     async function drain() {

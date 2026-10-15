@@ -59,7 +59,11 @@ async function call(path, { method = 'GET', json, form, auth = true } = {}) {
     }
     catch { /* not JSON */ }
     if (!response.ok) {
-        const detail = typeof data?.detail === 'string' ? data.detail : `Permintaan gagal (${response.status}).`;
+        // a validation error (422) lists the fields that failed: name the first one
+        const first = Array.isArray(data?.detail) ? data.detail[0] : null;
+        const detail = typeof data?.detail === 'string' ? data.detail
+            : first ? `Permintaan gagal (${response.status}): ${first.loc?.slice(1).join('.')} ${first.msg}`
+                : `Permintaan gagal (${response.status}).`;
         throw new ApiError(response.status, detail);
     }
     return { status: response.status, data };
