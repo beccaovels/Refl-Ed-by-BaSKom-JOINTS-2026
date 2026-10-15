@@ -19,8 +19,15 @@ READ_NGRAM = 5  # words in a row shared with the slide
 READ_RUN = 8  # only stretches at least this long count as reading; a definition read out is normal
 
 FILLERS = re.compile(r"\b(e{2,}|em{2,}|hm+|anu|apa ya|gitu)\b")
-# Sentences that are questions even when the transcript has no question mark.
-QUESTION_OPENERS = ("apakah", "siapakah", "ada yang tahu", "ada yang bisa", "siapa yang", "kenapa", "mengapa", "bagaimana")
+# Sentences that are questions even when the transcript has no question mark, so the
+# count does not depend on Whisper's punctuation. A sentence counts when it starts with one of these.
+QUESTION_OPENERS = (
+    "apa", "apakah", "siapa", "siapakah", "kapan", "berapa", "berapakah", "di mana", "dimana", "manakah",
+    "kenapa", "mengapa", "bagaimana", "bagaimanakah", "gimana",
+    "bisakah", "adakah", "bukankah", "benarkah", "mungkinkah", "dapatkah", "bolehkah",
+    "ada yang tahu", "ada yang bisa", "ada yang ingat", "ada yang mau", "coba siapa", "menurut kalian", "kira-kira",
+)  # fmt: skip
+_OPENER = re.compile(r"^(" + "|".join(re.escape(opener) for opener in QUESTION_OPENERS) + r")\b")
 
 
 @dataclass
@@ -59,7 +66,14 @@ def compute(db: Session, session_id: str) -> LessonMetrics:
         db.exec(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id).order_by(TranscriptSegment.seq))
     )
     turns = list(db.exec(select(SlideEvent).where(SlideEvent.session_id == session_id).order_by(SlideEvent.t_ms)))
-    asked = list(db.exec(select(Question).where(Question.session_id == session_id, Question.kind != "nudge")))
+    # Only what a student asked the teacher: not nudges, and not a student's reply to the teacher.
+    asked = list(
+        db.exec(
+            select(Question).where(
+                Question.session_id == session_id, Question.kind.in_(("regular", "misconception", "capstone", "reaction"))
+            )
+        )
+    )
 
     end_ms = max([s.end_ms for s in segments] + [t.t_ms for t in turns], default=0)
     spoken = [(s.start_ms, s.end_ms, s.text) for s in segments]
@@ -110,17 +124,24 @@ def teacher_questions(text: str) -> list[str]:
     found = []
     for sentence in re.findall(r"[^.!?]+[.!?]?", text):
         sentence = sentence.strip()
-        if sentence.endswith("?") or sentence.lower().startswith(QUESTION_OPENERS):
+        if sentence.endswith("?") or _OPENER.match(sentence.lower()):
             found.append(sentence)
     return found
+
+
+def closing_question(text: str) -> str | None:
+    """The question a piece of speech ends with, or None when its last sentence is not one."""
+    sentences = [s.strip() for s in re.findall(r"[^.!?]+[.!?]?", text) if s.strip()]
+    if sentences and teacher_questions(sentences[-1]):
+        return sentences[-1]
+    return None
 
 
 def wait_times(spoken: list[tuple[int, int, str]]) -> list[int]:
     """The silence after each piece of speech that ends with a question."""
     waits = []
     for (_, end, text), (next_start, _, _) in zip(spoken, spoken[1:]):
-        sentences = [s for s in re.findall(r"[^.!?]+[.!?]?", text) if s.strip()]
-        if sentences and teacher_questions(sentences[-1]):
+        if closing_question(text):
             waits.append(max(next_start - end, 0))
     return waits
 
