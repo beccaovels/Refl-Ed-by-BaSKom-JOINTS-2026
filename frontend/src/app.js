@@ -1,6 +1,6 @@
 import './styles.css';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-import React, { createContext, lazy, Suspense, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter as BrowserRouter, Link, NavLink, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CalendarDays, ChartNoAxesCombined, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Clock3, FileText, History, Home, Menu, Mic, MicOff, Camera, CameraOff, Pause, Play, Plus, Radio, RefreshCw, Settings2, ShieldCheck, Sparkles, Square, X, ArrowRight, Upload, WifiOff, AlertCircle, ScreenShare, ScreenShareOff } from 'lucide-react';
@@ -8,9 +8,7 @@ import { formatDate, formatTime, image, lessons, switchDemoProfile, lessonFromPa
 import * as api from './api.js';
 import { startRecorder } from './audio.js';
 import { adaptReport } from './adapt.js';
-// the PDF viewer (and pdf.js with it) is downloaded only when a lesson has a PDF
-const PdfStage = lazy(() => import('./PdfStage.jsx'));
-import ShareStage from './ShareStage.jsx';
+import StageArea from './StageArea.jsx';
 import MaterialUploader from './MaterialUploader.jsx';
 
 const Context = createContext(null);
@@ -340,13 +338,12 @@ function Room() {
     const [setupError, setSetupError] = useState('');
     const [sendProblem, setSendProblem] = useState('');
     const [recorderReady, setRecorderReady] = useState(false);
-    const [page, setPage] = useState(draft?.page ?? 1);
+    const [stageState, setStageState] = useState(draft?.stage ?? null);
+    const [files, setFiles] = useState(config.files ?? []);
     const slideQueue = useRef([]);
     const slideSending = useRef(false);
     const sessionRef = useRef(null);
     sessionRef.current = sessionId;
-    const pageRef = useRef(page);
-    pageRef.current = page;
     const shareRef = useRef(null);
     const [shareStream, setShareStream] = useState(null);
     const sharing = Boolean(shareStream);
@@ -432,14 +429,26 @@ function Room() {
         }
     }
     // `page` 0 means no slide text is on screen (a shared screen); the PDF page again when the teacher comes back.
+    const lastLogged = useRef(null);
     function logStage(shown) {
+        if (shown === lastLogged.current)
+            return; // the same page again is not a page turn
+        lastLogged.current = shown;
         slideQueue.current.push({ page: shown, t_ms: Math.round(recorder.current?.now() ?? seconds * 1000) });
         flushSlides();
     }
-    function turnPage(n) {
-        setPage(n);
-        logStage(n);
-    }
+    // The lesson's items, fresh from the server: a picture may have finished being read since Setup.
+    const stillReading = files.some(f => f.status === 'reading');
+    useEffect(() => {
+        if (!config.materialId)
+            return;
+        const load = () => api.listMaterialFiles(config.materialId).then(listed => setFiles(listed.files)).catch(() => { });
+        load();
+        if (!stillReading)
+            return;
+        const timer = window.setInterval(load, 3000);
+        return () => clearInterval(timer);
+    }, [stillReading]);
     // Screen sharing stays in the browser: the picture is shown on the stage and never uploaded.
     async function startShare() {
         if (shareRef.current)
@@ -464,8 +473,6 @@ function Room() {
         shareRef.current = null;
         stream.getTracks().forEach(t => t.stop());
         setShareStream(null);
-        if (config.materialId)
-            logStage(pageRef.current);
     }
     useEffect(() => () => shareRef.current?.getTracks().forEach(t => t.stop()), []);
     useEffect(() => {
@@ -500,7 +507,7 @@ function Room() {
     useEffect(() => { const on = () => setOffline(false), off = () => setOffline(true); window.addEventListener('online', on); window.addEventListener('offline', off); return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); }; }, []);
     useEffect(() => {
         try {
-            localStorage.setItem('gema-draft', JSON.stringify({ id, config, seconds, moments, answer, phase, questionCount, sessionId, capstone, nextSeq: recorder.current?.nextSeq() ?? draft?.nextSeq ?? 0, page }));
+            localStorage.setItem('gema-draft', JSON.stringify({ id, config, seconds, moments, answer, phase, questionCount, sessionId, capstone, nextSeq: recorder.current?.nextSeq() ?? draft?.nextSeq ?? 0, stage: stageState }));
             setStorageError(false);
         }
         catch {
@@ -579,7 +586,7 @@ function Room() {
             busy.current = false;
         }
     }
-    return _jsxs("div", { className: "room-page", children: [_jsxs("div", { className: "room-header", children: [_jsxs("div", { children: [_jsx(Link, { to: "/", className: "room-logo", "aria-label": "Kembali ke Dashboard", children: "g." }), _jsxs("div", { children: [_jsx("strong", { children: "Ruang latihan" }), _jsxs("small", { children: [config.lesson.subject, " \u00B7 ", config.lesson.chapter, " \u00B7 ", config.lesson.kelas] })] })] }), _jsxs("span", { className: "room-state", children: [_jsx(Radio, { size: 15 }), phase === 'live' ? (paused ? 'Dijeda' : 'Sesi berlangsung') : phase === 'capstone' ? 'Pertanyaan akhir' : 'Memproses'] }), _jsxs("span", { className: "room-timer", children: [_jsx(Clock3, { size: 18 }), liveAt()] })] }), (setupError || sendProblem) && _jsx("div", { className: "room-alert", role: "alert", children: setupError || `Audio belum terkirim: ${sendProblem} Mencoba lagi...` }), offline && _jsxs("div", { className: "room-alert", role: "alert", children: [_jsx(WifiOff, { size: 17 }), "Koneksi terputus. Sesi dijeda; catatan lokal tetap ada. ", _jsx("button", { onClick: () => setOffline(!navigator.onLine), children: "Coba sambungkan" })] }), deviceError && _jsxs("div", { className: "room-alert", role: "alert", children: [deviceError, _jsx(Link, { to: "/simulator/check", children: "Periksa perangkat" }), _jsx("button", { onClick: () => setDeviceError(''), children: "Tutup" })] }), storageError && _jsx("div", { className: "room-alert", role: "alert", children: "Penyimpanan lokal gagal. Jangan tutup halaman sebelum sesi berhasil disimpan." }), _jsxs("div", { className: "room-grid", children: [_jsxs("section", { className: `lesson-stage ${config.materialId ? 'has-pdf' : ''}`, children: [_jsxs("div", { className: "stage-top", children: [_jsx("span", { className: "stage-kicker", children: "AREA PELAJARAN" }), _jsx("span", { className: "stage-indicator", children: paused ? 'Dijeda' : offline ? 'Menunggu koneksi' : 'Latihan aktif' })] }), sharing && _jsx(ShareStage, { stream: shareStream, onStop: stopShare }), sharing && !config.materialId ? null : config.materialId ? _jsx("div", { className: "stage-center has-pdf", style: sharing ? { display: 'none' } : undefined, children: _jsx(Suspense, { fallback: _jsx("p", { role: "status", children: "Memuat materi…" }), children: _jsx(PdfStage, { materialId: config.materialId, name: config.material, initialPage: page, onPageChange: turnPage, active: !sharing }) }) }) : _jsxs("div", { className: "stage-center", children: [_jsx("span", { className: "stage-icon", children: _jsx(Sparkles, { size: 33 }) }), _jsx("span", { className: "stage-label", children: "TOPIK HARI INI" }), _jsx("h1", { children: config.lesson.chapter }), _jsx("p", { children: config.lesson.subchapter }), _jsxs("span", { className: "stage-subject", children: [config.lesson.subject, " \u00B7 ", config.lesson.kelas] }), config.material && _jsxs("p", { className: "material-caption", children: ["Nama materi: ", config.material, " \u00B7 isi dipakai untuk pertanyaan"] })] }), _jsxs("div", { className: "stage-bottom", children: [_jsxs("div", { className: "self-view", children: [camera ? _jsx("video", { autoPlay: true, muted: true, playsInline: true, ref: video, "aria-label": "Video diri Anda" }) : _jsxs("div", { children: [_jsx(CameraOff, { size: 21 }), _jsx("small", { children: "Kamera nonaktif" })] }), _jsx("span", { children: "ANDA" })] }), _jsxs("div", { className: "stage-hint", children: [_jsx(ShieldCheck, { size: 18 }), _jsx("span", { children: "Video tetap di perangkat. Analisis kamera belum terhubung." })] })] })] }), _jsxs("aside", { className: `chat-panel ${chatOpen ? '' : 'chat-hidden'}`, children: [_jsxs("div", { className: "chat-header", children: [_jsx("span", { className: "chat-avatar", children: _jsx(Sparkles, { size: 20 }) }), _jsxs("span", { children: [_jsx("strong", { children: "Siswa GeMa" }), _jsx("small", { children: "Satu siswa simulasi \u00B7 pertanyaan teks" })] }), _jsx("button", { className: "icon-button chat-toggle", onClick: () => setChatOpen(!chatOpen), "aria-expanded": chatOpen, "aria-label": chatOpen ? 'Sembunyikan pertanyaan' : 'Tampilkan pertanyaan', children: _jsx(ChevronDown, { size: 20 }) })] }), _jsxs("div", { className: "chat-body", "aria-live": "polite", children: [_jsxs("div", { className: "chat-intro", children: [_jsx(Sparkles, { size: 22 }), _jsx("strong", { children: "Ruang tanya yang aman" }), _jsx("p", { children: "Suara Anda dikirim ke server lokal untuk ditranskripsikan, lalu Siswa GeMa bertanya tentang apa yang baru Anda jelaskan." })] }), moments.map((m, i) => _jsxs("div", { className: `chat-message ${m.speaker === 'Guru' ? 'teacher-note' : ''}`, children: [_jsxs("small", { children: [m.speaker, " \u00B7 ", m.at] }), _jsx("p", { children: m.text })] }, i)), !questionCount && _jsx("p", { className: "waiting-question", children: "Mulai menjelaskan. Pertanyaan pertama muncul setelah sekitar 75 detik bicara." })] }), phase === 'live' && _jsxs("div", { className: "chat-footer", children: [_jsxs("form", { className: "note-form", onSubmit: e => {
+    return _jsxs("div", { className: "room-page", children: [_jsxs("div", { className: "room-header", children: [_jsxs("div", { children: [_jsx(Link, { to: "/", className: "room-logo", "aria-label": "Kembali ke Dashboard", children: "g." }), _jsxs("div", { children: [_jsx("strong", { children: "Ruang latihan" }), _jsxs("small", { children: [config.lesson.subject, " \u00B7 ", config.lesson.chapter, " \u00B7 ", config.lesson.kelas] })] })] }), _jsxs("span", { className: "room-state", children: [_jsx(Radio, { size: 15 }), phase === 'live' ? (paused ? 'Dijeda' : 'Sesi berlangsung') : phase === 'capstone' ? 'Pertanyaan akhir' : 'Memproses'] }), _jsxs("span", { className: "room-timer", children: [_jsx(Clock3, { size: 18 }), liveAt()] })] }), (setupError || sendProblem) && _jsx("div", { className: "room-alert", role: "alert", children: setupError || `Audio belum terkirim: ${sendProblem} Mencoba lagi...` }), offline && _jsxs("div", { className: "room-alert", role: "alert", children: [_jsx(WifiOff, { size: 17 }), "Koneksi terputus. Sesi dijeda; catatan lokal tetap ada. ", _jsx("button", { onClick: () => setOffline(!navigator.onLine), children: "Coba sambungkan" })] }), deviceError && _jsxs("div", { className: "room-alert", role: "alert", children: [deviceError, _jsx(Link, { to: "/simulator/check", children: "Periksa perangkat" }), _jsx("button", { onClick: () => setDeviceError(''), children: "Tutup" })] }), storageError && _jsx("div", { className: "room-alert", role: "alert", children: "Penyimpanan lokal gagal. Jangan tutup halaman sebelum sesi berhasil disimpan." }), _jsxs("div", { className: "room-grid", children: [_jsxs("section", { className: `lesson-stage ${files.length || sharing ? 'has-pdf' : ''}`, children: [_jsxs("div", { className: "stage-top", children: [_jsx("span", { className: "stage-kicker", children: "AREA PELAJARAN" }), _jsx("span", { className: "stage-indicator", children: paused ? 'Dijeda' : offline ? 'Menunggu koneksi' : 'Latihan aktif' })] }), _jsx(StageArea, { files, sharing, shareStream, canShare, onStartShare: startShare, onStopShare: stopShare, onStage: page => config.materialId && logStage(page), initial: stageState, onStateChange: setStageState, topicCard: _jsxs("div", { className: "stage-center", children: [_jsx("span", { className: "stage-icon", children: _jsx(Sparkles, { size: 33 }) }), _jsx("span", { className: "stage-label", children: "TOPIK HARI INI" }), _jsx("h1", { children: config.lesson.chapter }), _jsx("p", { children: config.lesson.subchapter }), _jsxs("span", { className: "stage-subject", children: [config.lesson.subject, " \u00B7 ", config.lesson.kelas] }), files.length > 0 && _jsxs("p", { className: "material-caption", children: [files.length, " materi siap. Pilih yang ingin ditampilkan dengan tombol Pilih materi."] })] }) }), _jsxs("div", { className: "stage-bottom", children: [_jsxs("div", { className: "self-view", children: [camera ? _jsx("video", { autoPlay: true, muted: true, playsInline: true, ref: video, "aria-label": "Video diri Anda" }) : _jsxs("div", { children: [_jsx(CameraOff, { size: 21 }), _jsx("small", { children: "Kamera nonaktif" })] }), _jsx("span", { children: "ANDA" })] }), _jsxs("div", { className: "stage-hint", children: [_jsx(ShieldCheck, { size: 18 }), _jsx("span", { children: "Video tetap di perangkat. Analisis kamera belum terhubung." })] })] })] }), _jsxs("aside", { className: `chat-panel ${chatOpen ? '' : 'chat-hidden'}`, children: [_jsxs("div", { className: "chat-header", children: [_jsx("span", { className: "chat-avatar", children: _jsx(Sparkles, { size: 20 }) }), _jsxs("span", { children: [_jsx("strong", { children: "Siswa GeMa" }), _jsx("small", { children: "Satu siswa simulasi \u00B7 pertanyaan teks" })] }), _jsx("button", { className: "icon-button chat-toggle", onClick: () => setChatOpen(!chatOpen), "aria-expanded": chatOpen, "aria-label": chatOpen ? 'Sembunyikan pertanyaan' : 'Tampilkan pertanyaan', children: _jsx(ChevronDown, { size: 20 }) })] }), _jsxs("div", { className: "chat-body", "aria-live": "polite", children: [_jsxs("div", { className: "chat-intro", children: [_jsx(Sparkles, { size: 22 }), _jsx("strong", { children: "Ruang tanya yang aman" }), _jsx("p", { children: "Suara Anda dikirim ke server lokal untuk ditranskripsikan, lalu Siswa GeMa bertanya tentang apa yang baru Anda jelaskan." })] }), moments.map((m, i) => _jsxs("div", { className: `chat-message ${m.speaker === 'Guru' ? 'teacher-note' : ''}`, children: [_jsxs("small", { children: [m.speaker, " \u00B7 ", m.at] }), _jsx("p", { children: m.text })] }, i)), !questionCount && _jsx("p", { className: "waiting-question", children: "Mulai menjelaskan. Pertanyaan pertama muncul setelah sekitar 75 detik bicara." })] }), phase === 'live' && _jsxs("div", { className: "chat-footer", children: [_jsxs("form", { className: "note-form", onSubmit: e => {
                                             e.preventDefault();
                                             if (!note.trim())
                                                 return;

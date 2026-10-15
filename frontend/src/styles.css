@@ -622,3 +622,21 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .upload-usage{display:block;margin-top:12px;font-size:11px;color:var(--muted)}
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* Room: choosing what the stage shows */
+.stage-switch{position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;max-width:min(560px,70%);z-index:2}
+.stage-switch-label{color:var(--room-text);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage-switch-button{display:inline-flex;align-items:center;gap:7px;flex:none;padding:7px 12px;border-radius:999px;background:var(--blue);color:#fff;border:0;font-size:12px;font-weight:700;cursor:pointer}
+.stage-image{display:block;max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;background:#fff;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+.stage-note{margin:0;text-align:center;font-size:12px;color:var(--room-muted)}
+.stage-picker-backdrop{position:absolute;inset:0;z-index:5;background:rgba(10,18,40,.55);display:flex;align-items:flex-start;justify-content:center;padding:60px 16px}
+.stage-picker{width:min(440px,100%);max-height:100%;overflow:auto;background:var(--white);color:var(--ink);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.4)}
+.stage-picker-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.stage-picker ul{list-style:none;margin:0;padding:8px}
+.stage-picker li button{width:100%;display:flex;align-items:center;gap:11px;padding:10px;border:1px solid transparent;border-radius:10px;background:none;color:var(--blue);text-align:left;cursor:pointer}
+.stage-picker li button:hover{background:var(--blue-soft)}
+.stage-picker li button.current{border-color:var(--blue);background:var(--blue-soft)}
+.stage-picker li button span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.stage-picker strong{font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage-picker small{font-size:11px;color:var(--muted)}
+.lesson-stage.has-pdf .stage-top{padding-bottom:56px}
