@@ -69,6 +69,13 @@ async function call(path, { method = 'GET', json, form, auth = true } = {}) {
     return { status: response.status, data };
 }
 
+/** Where pdf.js fetches the teacher's PDF from, and the header it must send (it does its own requests). */
+export const materialFileUrl = (materialId) => `${BASE}/materials/${materialId}/file`;
+export const authHeaders = () => {
+    const user = getUser();
+    return user ? { 'X-User-Id': user.id } : {};
+};
+
 export const profiles = async () => (await call('/profiles')).data;
 export async function uploadMaterial(file) {
     const form = new FormData();
