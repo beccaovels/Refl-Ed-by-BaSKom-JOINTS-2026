@@ -17,7 +17,7 @@ Indonesian teachers rehearse a lesson in a room that looks like a video call. Th
 - [Troubleshooting](#troubleshooting)
 - [Working together](#working-together)
 
-For Judges & Committees who want to try the website demonstration, start with quick start.
+For Judges & Committees who want to try the website demonstration, start with quick start!
 ## Quick Start
 
 You need Python 3.11+ and Node.js 18+. You can run the app in two ways:
