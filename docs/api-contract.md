@@ -161,9 +161,9 @@ At most one event per audio reply. What the room does with each `kind`:
     score | null, label | null, label_text | null,
     weight,                                        // share of the overall score, in percent
     available,                                     // false when it could not be measured
-    locked,                                        // true when the tier does not include it
+    locked,                                        // always false: no card is behind a plan; kept so the shape does not change
     unavailable_reason | null,
-    parameters: [{ key, title, score | null, max, available, source }],   // source: llm | computed; empty when locked
+    parameters: [{ key, title, score | null, max, available, source }],   // source: llm | computed
     items: [Item]                                  // at most one worked and one noticed, worked first
   }],
   ideas: [Idea],                                   // at most 3

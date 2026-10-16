@@ -26,7 +26,7 @@ from app.services import delivery, evidence, examples, llm, metrics, profiles, r
 from app.services.metrics import SHARED_SCREEN, LessonMetrics
 from app.services.questions import ASKING
 from app.services.report_schema import ReportOut
-from app.services.rubric import CARDS, FREE_CARDS, LABELS, Card, band, clarity_parameters, growth_label, worked_practice
+from app.services.rubric import CARDS, LABELS, Card, band, clarity_parameters, growth_label, worked_practice
 
 log = logging.getLogger(__name__)
 
@@ -104,8 +104,6 @@ def build_report(db: Session, session_id: str) -> dict:
     session = db.get(TeachingSession, session_id)
     if session is None:
         raise ValueError(f"Session {session_id} not found")
-    user = db.get(User, session.user_id)
-    institutional = user is not None and user.tier == "institutional"
     profile = profiles.get(session.profile_id) or {}
     segments = list(
         db.exec(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id).order_by(TranscriptSegment.seq))
@@ -152,8 +150,9 @@ def build_report(db: Session, session_id: str) -> dict:
 
     dimensions = []
     for card in CARDS:
-        locked = card.key not in FREE_CARDS and not institutional
-        dimensions.append(_dimension(card, profile, fractions, items.get(card.key, []), locked, enough_speech))
+        # No card is behind a plan: Tempo and Suara & ekspresi are scored for everyone. `locked` stays in the report
+        # shape (docs/api-contract.md) and is always false.
+        dimensions.append(_dimension(card, profile, fractions, items.get(card.key, []), False, enough_speech))
 
     counted = [d for d in dimensions if d["score"] is not None]
     overall = round(sum(d["score"] * d["weight"] for d in counted) / sum(d["weight"] for d in counted)) if counted else None
