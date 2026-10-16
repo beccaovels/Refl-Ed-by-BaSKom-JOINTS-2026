@@ -1,0 +1,26 @@
+/* ---------- Landing (before login) ---------- */
+/* The logo's wordmark is white, so it sits on the blue band, as on the login page. */
+.landing{min-height:100vh;background:var(--surface);color:var(--ink)}
+.landing-nav{position:sticky;top:0;z-index:20;background:var(--blue-600)}
+.landing-nav-inner{max-width:1180px;margin:auto;height:72px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 clamp(16px,4vw,40px)}
+.landing-logo{display:block;height:48px;width:auto}
+.landing-links{display:flex;align-items:center;gap:4px}
+.landing-cta{min-height:44px;padding:10px 18px;border:0;border-radius:var(--r-md);background:var(--yellow-400);color:var(--ink);font-weight:700;font-size:15px}
+.landing-cta:hover{background:var(--yellow-300)}
+.landing-nav :focus-visible{outline-color:var(--yellow-400)}
+.landing-kicker{display:block;font-size:14px;font-weight:700;color:var(--blue-700);margin-bottom:12px}
+.landing-hero{max-width:1180px;margin:auto;padding:56px clamp(16px,4vw,40px) 0;display:grid;grid-template-columns:1.15fr .85fr;align-items:center;gap:40px}
+.landing-hero h1{font-size:clamp(34px,4.4vw,56px);line-height:1.08;margin-bottom:18px;max-width:16ch}
+.landing-hero p{color:var(--ink-2);font-size:17px;max-width:52ch;margin-bottom:26px}
+.landing-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.landing-actions .button{min-width:170px}
+.landing-note{color:var(--muted)}
+.landing-hero-art{width:100%;max-height:380px;object-fit:contain}
+@media(max-width:860px){
+  .landing-hero{grid-template-columns:1fr;padding-top:32px;gap:20px}
+  .landing-hero-art{max-height:220px;order:-1}
+}
+@media(max-width:520px){
+  .landing-logo{height:40px}
+  .landing-actions .button{width:100%}
+}
