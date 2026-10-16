@@ -16,9 +16,25 @@
 .landing-actions .button{min-width:170px}
 .landing-note{color:var(--muted)}
 .landing-hero-art{width:100%;max-height:380px;object-fit:contain}
+.landing-link{min-height:44px;padding:10px 14px;border:0;border-radius:var(--r-md);background:transparent;color:#fff;font-weight:600;font-size:15px}
+.landing-link:hover{background:var(--blue-700)}
+.landing-section{max-width:1180px;margin:auto;padding:80px clamp(16px,4vw,40px) 0;scroll-margin-top:72px}
+.landing-section h2{font-family:var(--font-display);font-size:clamp(26px,3vw,36px);line-height:1.15;letter-spacing:-.02em;margin-bottom:12px}
+.landing-lead{color:var(--ink-2);font-size:16px;max-width:62ch;margin-bottom:28px}
+.landing-features{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.landing-feature{padding:24px}
+.landing-feature p{color:var(--muted);font-size:14px;margin:0}
+.landing-icon{width:44px;height:44px;border-radius:var(--r-md);display:grid;place-items:center;background:var(--blue-50);color:var(--blue-700);margin-bottom:16px}
+.landing-feature:nth-child(3n+2) .landing-icon{background:var(--orange-50);color:var(--orange-800)}
+.landing-feature:nth-child(3n) .landing-icon{background:var(--yellow-100);color:var(--orange-800)}
+@media(max-width:960px){.landing-features{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:860px){
   .landing-hero{grid-template-columns:1fr;padding-top:32px;gap:20px}
   .landing-hero-art{max-height:220px;order:-1}
+}
+@media(max-width:600px){
+  .landing-features{grid-template-columns:1fr}
+  .landing-link{display:none}
 }
 @media(max-width:520px){
   .landing-logo{height:40px}
