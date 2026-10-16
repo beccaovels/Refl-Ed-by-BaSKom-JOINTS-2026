@@ -1,0 +1,29 @@
+/* ---------- History and performance ---------- */
+.history-card{padding:24px}
+.history-heading{align-items:flex-end}
+.history-heading h2{display:flex;align-items:center;gap:10px}
+.filters{display:flex;gap:8px}
+.filters select{min-width:160px}
+.report-list{display:grid;gap:8px}
+.report-row{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--line);border-radius:var(--r-md)}
+.report-row>svg{color:var(--muted);flex:none}
+.report-subject-icon{width:46px;height:46px;border-radius:var(--r-md);background:var(--blue-50);color:var(--blue-700);display:grid;place-items:center;flex:none}
+.report-row-copy{display:flex;flex-direction:column;gap:2px;min-width:0;margin-right:auto}
+.report-row-copy strong{font-size:15px}
+.report-row-copy small{color:var(--muted);display:flex;align-items:center;gap:5px}
+.report-row-end{display:grid;grid-template-columns:8rem 6rem;align-items:center;gap:16px}
+.report-row-end .status{justify-self:stretch;justify-content:center}
+.report-row-end strong{font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}
+.performance-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.performance-score{display:flex;align-items:baseline;gap:8px;margin:16px 0}
+.performance-score strong{font-family:var(--font-display);font-weight:600;font-size:56px;line-height:1;color:var(--ink)}
+.performance-score span{color:var(--muted);font-weight:600}
+.performance-score small{font-weight:400}
+.score-label{font-weight:600;color:var(--ink-2);margin:-6px 0 12px}
+.trend-list>div,.trend-placeholder{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md)}
+.trend-list>div{padding:14px 16px;margin-top:12px}
+.trend-list p{font-size:15px;margin:6px 0}
+.trend-list small{color:var(--muted)}
+.trend-placeholder{display:flex;align-items:center;gap:16px;padding:18px;color:var(--muted);font-size:14px}
+.trend-placeholder svg{color:var(--orange-400);flex:none}
+.report-description{font-size:15px;line-height:1.55;color:var(--ink-2);margin:0 0 12px;overflow-wrap:anywhere}

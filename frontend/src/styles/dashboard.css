@@ -1,0 +1,46 @@
+/* ---------- Dashboard ---------- */
+.hero{position:relative;overflow:hidden;display:flex;align-items:center;min-height:300px;background:var(--blue-50);border-radius:var(--r-lg);padding:36px 40px;margin-bottom:24px}
+.hero-content{position:relative;z-index:1;width:56%;max-width:520px}
+.hero h2{font-size:clamp(26px,2.4vw,32px);line-height:1.2;margin-bottom:12px;color:var(--ink)}
+.hero p{max-width:46ch;color:var(--ink-2);font-size:16px;margin-bottom:22px}
+.hero .button{min-width:160px}
+.hero-note{display:inline-block;margin-left:14px;color:var(--muted);font-size:13px}
+.hero>img{position:absolute;right:24px;bottom:0;width:min(42%,460px);height:290px;object-fit:contain;object-position:bottom}
+.dashboard-grid{display:grid;grid-template-columns:1.25fr .9fr;gap:20px}
+.session-stack{display:grid;gap:8px}
+.schedule-row{display:flex;align-items:center;gap:14px;padding:12px;border:1px solid var(--line);border-radius:var(--r-md)}
+.schedule-row:hover,.report-row:hover{border-color:var(--blue-600);background:var(--blue-50)}
+.schedule-row>svg{margin-left:auto;color:var(--blue-600);flex:none}
+.date-tile{width:52px;height:54px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--orange-50);border-radius:var(--r-sm);color:var(--orange-800)}
+.date-tile strong{font-size:22px;line-height:1;font-variant-numeric:tabular-nums}
+.date-tile small{font-size:11px;font-weight:700}
+.row-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.row-main strong{font-size:15px}
+.row-main small{color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.snapshot{display:flex;gap:18px;align-items:center;margin:4px 0 22px}
+.score-bubble{width:88px;height:88px;border-radius:50%;flex:none;border:7px solid var(--yellow-400);display:flex;align-items:center;justify-content:center;color:var(--ink);font-family:var(--font-display);font-weight:600;font-size:28px}
+.score-bubble small{font-family:var(--font-sans);font-style:normal;font-size:12px;margin-left:3px;color:var(--muted)}
+.snapshot h3{margin:2px 0}
+.snapshot p{font-size:14px;line-height:1.5;color:var(--muted);margin:0;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.topic-section{display:grid;grid-template-columns:.8fr 1.7fr;align-items:center;gap:24px;margin-top:32px;padding-top:28px;border-top:1px solid var(--line)}
+.topic-section h2{font-size:22px;max-width:260px;margin-bottom:6px}
+.topic-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.topic-card{display:flex;align-items:center;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:16px;min-height:140px}
+.topic-card img{width:72px;height:108px;object-fit:contain;flex:none}
+.topic-card span{font-size:13px;font-weight:600;color:var(--muted)}
+.topic-card h3{margin:6px 0 12px}
+.topic-card small{font-size:14px;color:var(--blue-600);font-weight:600;display:flex;align-items:center;gap:6px}
+.topic-card:hover{border-color:var(--blue-600);background:var(--blue-50)}
+.reminder{margin:20px clamp(24px,4vw,48px) 0}
+.notice-stack{display:grid;gap:10px;margin:0 0 20px}
+.notice-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--blue-200);border-radius:var(--r-md);background:var(--blue-50);color:var(--blue-800)}
+.notice-card.is-reminder{border-color:var(--yellow-400);background:var(--yellow-100);color:var(--orange-800)}
+.notice-card>svg{flex:none}
+.notice-copy{display:grid;gap:2px;min-width:0}
+.notice-copy strong{font-size:15px;line-height:1.35;color:var(--ink)}
+.notice-copy span{font-size:14px;line-height:1.45;color:var(--ink-2);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.notice-copy small{font-size:13px;color:var(--muted)}
+.notice-actions{display:flex;align-items:center;gap:8px;flex:none}
+.notice-actions .button{min-height:40px;padding:8px 16px;font-size:14px}
+.storage-error{background:var(--danger-soft);color:var(--danger);padding:14px;position:relative;z-index:100}
+.storage-error button,.room-alert button{font:inherit;color:inherit;border:1px solid currentColor;background:transparent;border-radius:var(--r-sm);padding:4px 10px;margin-left:6px}

@@ -1,0 +1,30 @@
+/* ---------- Shell: brand band, top bar ---------- */
+.app-shell{display:flex;min-height:100vh}
+.sidebar{width:244px;flex:none;background:var(--blue-600);color:#fff;height:100vh;position:sticky;top:0;padding:22px 14px 16px;display:flex;flex-direction:column;z-index:40}
+.brand{display:flex;align-items:center;gap:10px;padding:0 10px 28px}
+.brand-logo{display:block;border-radius:var(--r-sm)}
+.brand-logo img{display:block;height:52px;width:auto}
+.brand-logo:focus-visible{outline-color:var(--yellow-400)}
+.sidebar nav{display:grid;gap:4px}
+.nav-link{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 14px;border-radius:var(--r-md);color:#fff;font-size:15px;font-weight:600}
+.nav-link svg{opacity:.85;flex:none}
+.nav-link:hover{background:var(--blue-700)}
+.nav-link.active{background:#fff;color:var(--blue-700);}
+.nav-link.active svg{opacity:1}
+.sidebar :focus-visible{outline-color:var(--yellow-400)}
+.sidebar-bottom{margin-top:auto;border-top:1px solid rgba(255,255,255,.22);padding-top:14px}
+.sidebar-message{display:flex;gap:10px;align-items:flex-start;padding:4px 12px 6px;font-size:13px;font-weight:600;line-height:1.45}
+.sidebar-message svg{color:var(--yellow-400);flex:none}
+.collapse-button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;border-radius:var(--r-md);padding:10px 12px;color:#fff;font-size:13px}
+.collapse-button:hover{background:var(--blue-700)}
+.rotated{transform:rotate(180deg)}
+.close-nav{color:#fff}
+.close-nav:hover{background:var(--blue-700)}
+
+.main{min-width:0;flex:1}
+.topbar{height:var(--topbar);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 clamp(24px,4vw,48px);background:var(--surface)}
+.topbar-label{font-size:13px;font-weight:600;color:var(--muted)}
+.topbar-label span{margin:0 8px}
+.topbar-right{display:flex;align-items:center;gap:16px;margin-left:auto}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--yellow-400);color:var(--ink);display:grid;place-items:center;font-size:14px;font-weight:700}
+.logout-link{background:none;border:0;padding:0;font-size:13px}

@@ -1,0 +1,61 @@
+/*
+  Design tokens. Colours come from the logo (frontend/public/assets/logo.svg) and the brand palette.
+
+  How the colours are used:
+  - Blue is the place and the action: primary buttons, links, focus rings, selected states, the brand band
+    (sidebar, login) and, darkened, the Room. One primary (blue) button per view.
+  - Yellow is the mascot: it marks what is yours and what went well (score ring, "what worked", the active
+    nav tick, focus on dark surfaces). Never used for text on white.
+  - Orange is warmth: ideas to try, date tiles, gentle warnings. Text on light uses --orange-800.
+  - Green only means "ready" or "done". Red only means a system problem (upload, mic, network), never
+    feedback about the teacher.
+  - The logo's wordmark is white, so the logo only sits on blue or the Room's dark blue.
+*/
+:root{
+  --blue-50:#eef4fc;
+  --blue-100:#dce8f8;
+  --blue-200:#b9d1f1;
+  --blue-600:#196cce;
+  --blue-700:#1458a8;
+  --blue-800:#0f427f;
+  --yellow-100:#fff5d6;
+  --yellow-300:#ffd977;
+  --yellow-400:#fecc4b;
+  --orange-50:#fef3e2;
+  --orange-400:#f2ab3d;
+  --orange-800:#8a5a12;
+  --ink:#14243b;
+  --ink-2:#3b4b61;
+  --muted:#5a6a80;
+  --line:#dfe6ef;
+  --line-strong:#c8d3e1;
+  --paper:#f5f8fc;
+  --surface:#ffffff;
+  --success:#1e7a4c;
+  --success-soft:#e7f4ec;
+  --danger:#b3322b;
+  --danger-soft:#fcecea;
+  --room-bg:#0b2546;
+  --room-surface:#113258;
+  --room-control:#1a4475;
+  --room-line:#2d5a8e;
+  --room-text:#e3ecf8;
+  --room-muted:#a7bedd;
+  --room-alert:#4a3a1a;
+  --room-alert-line:#6b5426;
+  --scrim:rgba(11,37,70,.55);
+
+  --font-sans:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-display:"Lora",Georgia,serif;
+  --r-sm:6px;
+  --r-md:10px;
+  --r-lg:16px;
+  --shadow-overlay:0 18px 50px rgba(11,37,70,.22);
+  --topbar:64px;
+
+  font-family:var(--font-sans);
+  color:var(--ink);
+  background:var(--paper);
+  font-synthesis:none;
+  -webkit-font-smoothing:antialiased;
+}
