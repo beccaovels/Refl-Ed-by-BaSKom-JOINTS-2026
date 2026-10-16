@@ -3,6 +3,7 @@ JOINTS Hackathon 2026 (UGM), team BaSKom.
 
 Indonesian teachers rehearse a lesson in a room that looks like a video call. They present their own material, an AI student asks questions live, and afterwards they get a report built from evidence in their own words. 
 
+- [Quick Start](#quick-start)
 - [Product overview](#product-overview)
 - [Personas: Bu Rina and Bu Lina](#personas-bu-rina-and-bu-lina)
 - [Current scope](#current-scope)
@@ -15,6 +16,147 @@ Indonesian teachers rehearse a lesson in a room that looks like a video call. Th
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
 - [Working together](#working-together)
+
+For Judges & Committees who want to try the website demonstration, start with quick start.
+## Quick Start
+
+You need Python 3.11+ and Node.js 18+. You can run the app in two ways:
+
+- **Sample mode (no key, no internet):** built-in sample transcripts, questions and reports. Fastest way to see the whole flow.
+- **Real AI mode:** real speech-to-text and question generation. Needs two free API keys (see step 3).
+
+### 1. Backend (first terminal)
+
+Windows:
+
+```
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy ..\.env.example .env
+```
+
+macOS / Linux:
+
+```
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp ../.env.example .env
+```
+
+### 2. Choose a mode in `backend/.env`
+
+**Sample mode.** Set:
+
+```
+STT_PROVIDER=fake
+LLM_PROVIDER=fake
+```
+
+**Real AI mode.** Create two free keys:
+
+| Purpose | Provider | Where to get a key |
+|---|---|---|
+| Speech-to-text | Groq | https://console.groq.com/keys |
+| Questions and reports | Google Gemini | https://aistudio.google.com/apikey |
+
+Then set:
+
+```
+STT_PROVIDER=groq
+LLM_PROVIDER=gemini
+GROQ_API_KEY=<your Groq key>
+GEMINI_API_KEY=<your Gemini key>
+```
+
+Leave `LLM_MODEL` empty. The app then tries its built-in list of Gemini models and moves to the next one if a model is busy or over quota.
+Keep keys only in `backend/.env`. That file is git-ignored; never paste a key into the README, an issue or a commit.
+*Make sure this line is also present, or the lesson list will be empty:*
+
+```
+SHOW_UNTESTED_PROFILES=true
+```
+
+(It is already there if you copied `.env.example`. / git clone the repo)
+
+Additional note : 
+### Who needs an API key?
+
+Only whoever **runs the server**. Teachers and students who open the app in a browser never see or create a key.
+
+- The keys live in `backend/.env` on the server. The browser never receives them; it only talks to our backend, and the backend calls Groq and Gemini.
+- You are asked to create keys here only because you are running your own copy of the server from this repository. In a real deployment, the school or the team sets the keys once and everyone uses the same running app.
+- Both providers have a free tier, so a demo costs nothing. Free tiers have rate limits; a deployment with many users would use a paid plan or a school-owned account.
+- If you do not want to create keys, use sample mode (`STT_PROVIDER=fake`, `LLM_PROVIDER=fake`). It runs the full flow with placeholder content.
+
+### 3. Start the backend
+
+From inside `backend/` with the virtual environment active:
+
+```
+uvicorn app.main:app --reload
+```
+
+Check that http://localhost:8000/api/health shows `{"status":"ok"}`.
+
+In real AI mode, you can also check that the keys work (from `backend/`):
+
+```
+python ../ml/eval/check_providers.py
+```
+
+It makes one call to the language model and prints the reply. To also test speech-to-text, add the path of a short WAV recording.
+
+### 4. Frontend (second terminal)
+
+```
+cd frontend
+npm install
+npm run dev
+```
+
+### 5. Try it
+
+Open http://127.0.0.1:5173, choose a teacher profile, pick *Matematika, Kelas X, Peluang*, and start a session. Allow the microphone when the browser asks.
+
+### If something goes wrong
+- **Settings are only read when the backend starts.** After any change to `backend/.env`, stop the backend and start it again. Make sure only one backend is running on port 8000.
+- **Lesson list says no material is available:** check `SHOW_UNTESTED_PROFILES=true` in `backend/.env`, then restart the backend.
+- **Questions or reports fail or are slow (real AI mode):** the free tier is busy or over quota. Wait a minute and retry, or switch both providers back to `fake`, which always works.
+- **A report shows a short notice instead of scores:** the lesson had fewer than about 40 spoken words. Speak for longer.
+- **Anything else:** see [Troubleshooting](#troubleshooting).
+  
+###  Guide to Restarting the Backend
+
+`backend/.env` is only read when the backend starts, so restart it after every change to that file.
+In the terminal where `uvicorn` is running, press `Ctrl+C`, then start it again from inside `backend/`:
+
+```
+uvicorn app.main:app --reload
+```
+If the terminal was closed or port 8000 is still in use, an old server may still be running and answering with the old settings. Stop it first.
+
+Windows (PowerShell):
+
+```
+Get-NetTCPConnection -LocalPort 8000 -State Listen | Select-Object OwningProcess
+taskkill /F /T /PID <the number printed above>
+Get-NetTCPConnection -LocalPort 8000 -State Listen
+```
+
+macOS / Linux:
+
+```
+lsof -i :8000
+kill <the PID printed above>
+lsof -i :8000
+```
+
+The last command should print nothing. If it still shows a process, repeat with the new number, because the `--reload` worker can outlive its parent. Then run the `uvicorn` command above again.
+
 
 ## Product overview
 
