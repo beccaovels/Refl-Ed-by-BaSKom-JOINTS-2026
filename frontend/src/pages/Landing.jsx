@@ -1,4 +1,5 @@
 import {
+    ArrowRight,
     BookOpen,
     CircleCheck,
     FileText,
@@ -54,6 +55,12 @@ const MISSIONS = [
     'Memberi masukan yang berpijak pada kata-kata guru sendiri, sebagai cermin, bukan penilaian.',
     'Menghemat waktu guru: setiap ide langsung siap dipakai, tanpa persiapan atau bahan tambahan.',
     'Menjaga data latihan tetap milik guru, tidak dibagikan kepada siapa pun.',
+];
+
+const STEPS = [
+    { title: 'Login', body: 'Pilih akun Anda. Tanpa kata sandi.' },
+    { title: 'Siapkan pelajaran', body: 'Pilih mata pelajaran dan bab, lalu unggah materi bila ada.' },
+    { title: 'Berlatih dan refleksi', body: `Mengajar seperti biasa, jawab ${REFL_NAME}, lalu baca refleksi Anda.` },
 ];
 
 export function Landing({ onStart }) {
@@ -158,7 +165,35 @@ export function Landing({ onStart }) {
                         </article>
                     </div>
                 </section>
+
+                <section id="mulai" className="landing-section" aria-labelledby="mulai-title">
+                    <div className="landing-start">
+                        <div className="landing-start-copy">
+                            <img className="landing-start-logo" src="./assets/logo.svg" alt="" />
+                            <span className="landing-kicker">Mulai sekarang</span>
+                            <h2 id="mulai-title">Siap mencoba satu latihan kecil?</h2>
+                            <p>Tiga langkah, sekitar dua menit sampai Anda mulai mengajar.</p>
+                            <button type="button" className="landing-cta" onClick={onStart}>
+                                <span>Login dan mulai berlatih</span>
+                                <ArrowRight size={18} />
+                            </button>
+                        </div>
+                        <ol className="landing-steps">
+                            {STEPS.map((s, i) => (
+                                <li key={s.title}>
+                                    <span className="landing-step-number">{i + 1}</span>
+                                    <span>
+                                        <strong>{s.title}</strong>
+                                        <small>{s.body}</small>
+                                    </span>
+                                </li>
+                            ))}
+                        </ol>
+                    </div>
+                </section>
             </main>
+
+            <footer className="landing-footer">© 2026 Tim BaSKom · JOINTS 2026, Universitas Gadjah Mada</footer>
         </div>
     );
 }
