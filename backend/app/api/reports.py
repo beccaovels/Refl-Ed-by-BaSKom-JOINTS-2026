@@ -20,7 +20,7 @@ from app.core.auth import current_user, own_session
 from app.core.db import get_session
 from app.models import FeedbackFlag, Report, TeachingSession, User
 from app.schemas.reports import FlagIn, ReportPending
-from app.services import scoring
+from app.services import llm, scoring
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["reports"])
@@ -29,6 +29,10 @@ router = APIRouter(tags=["reports"])
 # and calling /finish again simply starts it over. A stored report always wins over this.
 _jobs: dict[str, str] = {}
 _jobs_lock = Lock()
+# session_id -> what to tell the teacher when the report could not be made
+_failures: dict[str, str] = {}
+GENERIC_FAILURE = "Laporan belum berhasil dibuat. Silakan coba lagi."
+AI_BUSY = "Layanan AI sedang sibuk atau sudah mencapai batas pemakaian. Tunggu satu atau dua menit, lalu coba lagi."
 
 
 def start_report(db: Session, session_id: str, background: BackgroundTasks) -> None:
@@ -39,6 +43,7 @@ def start_report(db: Session, session_id: str, background: BackgroundTasks) -> N
         if _jobs.get(session_id) == "pending":
             return
         _jobs[session_id] = "pending"
+        _failures.pop(session_id, None)
     # the request's own db session closes with the request, so the job opens one on the same engine
     background.add_task(_build, session_id, db.get_bind())
 
@@ -61,10 +66,11 @@ def _build(session_id: str, engine: Engine) -> None:
                 db.rollback()  # a report for this session was already saved; keep the first one
         with _jobs_lock:
             _jobs.pop(session_id, None)
-    except Exception:
+    except Exception as err:
         log.exception("Report generation failed for session %s", session_id)
         with _jobs_lock:
             _jobs[session_id] = "failed"
+            _failures[session_id] = AI_BUSY if isinstance(err, llm.LLMError) else GENERIC_FAILURE
 
 
 def _stored(db: Session, session_id: str) -> Report | None:
@@ -85,7 +91,7 @@ def get_report(session_id: str, user: User = Depends(current_user), db: Session 
     if state == "pending":
         return JSONResponse(status_code=202, content=ReportPending().model_dump())
     if state == "failed":
-        raise HTTPException(status_code=500, detail="Laporan belum berhasil dibuat. Silakan coba lagi.")
+        raise HTTPException(status_code=500, detail=_failures.get(session_id, GENERIC_FAILURE))
     raise HTTPException(status_code=404, detail="Laporan untuk sesi ini belum dibuat.")
 
 
